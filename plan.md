@@ -19,8 +19,8 @@ Create a greenfield C++ implementation of Monkey based on Thorsten Ball’s book
 - Keep the implementation split into modules: lexer, parser, AST, object system, evaluator, compiler, VM, builtins, and tests.
 
 ## Step-By-Step Plan
-1. Create `plan.md` and copy this plan into it verbatim.
-2. Define the top-level project layout: `src/`, `include/`, `tests/`, `examples/`, and `CMakeLists.txt`.
+1. [DONE]Create `plan.md` and copy this plan into it verbatim.
+2. [DONE]Define the top-level project layout: `src/`, `include/`, `tests/`, `examples/`, and `CMakeLists.txt`.
 3. Set the compiler standard, warnings, and debug/release presets in CMake.
 4. Add Catch2 through CMake and verify the test target can be discovered.
 5. Add a minimal smoke test so the test runner is working before language code exists.
