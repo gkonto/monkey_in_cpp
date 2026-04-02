@@ -36,7 +36,8 @@ TEST_CASE("TestNextToken extended input", "[lexer]") {
         "};\n"
         "let result = add(five, ten);\n"
         "!-/*5;\n"
-        "5 < 10 > 5;";
+        "5 < 10 > 5;\n"
+        "if (5 < 10) { return true; } else { return false; }";
 
     const Token expected_tokens[] = {
         {TokenType::Let, "let"},
@@ -87,6 +88,23 @@ TEST_CASE("TestNextToken extended input", "[lexer]") {
         {TokenType::GreaterThan, ">"},
         {TokenType::Integer, "5"},
         {TokenType::Semicolon, ";"},
+        {TokenType::If, "if"},
+        {TokenType::LeftParen, "("},
+        {TokenType::Integer, "5"},
+        {TokenType::LessThan, "<"},
+        {TokenType::Integer, "10"},
+        {TokenType::RightParen, ")"},
+        {TokenType::LeftBrace, "{"},
+        {TokenType::Return, "return"},
+        {TokenType::True, "true"},
+        {TokenType::Semicolon, ";"},
+        {TokenType::RightBrace, "}"},
+        {TokenType::Else, "else"},
+        {TokenType::LeftBrace, "{"},
+        {TokenType::Return, "return"},
+        {TokenType::False, "false"},
+        {TokenType::Semicolon, ";"},
+        {TokenType::RightBrace, "}"},
         {TokenType::EndOfFile, ""},
     };
 

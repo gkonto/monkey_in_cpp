@@ -29,6 +29,11 @@ enum class TokenType {
 
     Function,
     Let,
+    True,
+    False,
+    If,
+    Else,
+    Return,
 };
 
 struct Token {
@@ -43,6 +48,26 @@ struct Token {
 
     if (literal == "let") {
         return TokenType::Let;
+    }
+
+    if (literal == "true") {
+        return TokenType::True;
+    }
+
+    if (literal == "false") {
+        return TokenType::False;
+    }
+
+    if (literal == "if") {
+        return TokenType::If;
+    }
+
+    if (literal == "else") {
+        return TokenType::Else;
+    }
+
+    if (literal == "return") {
+        return TokenType::Return;
     }
 
     return TokenType::Identifier;
@@ -90,6 +115,16 @@ struct Token {
             return "Function";
         case TokenType::Let:
             return "Let";
+        case TokenType::True:
+            return "True";
+        case TokenType::False:
+            return "False";
+        case TokenType::If:
+            return "If";
+        case TokenType::Else:
+            return "Else";
+        case TokenType::Return:
+            return "Return";
     }
 
     return "Unknown";
