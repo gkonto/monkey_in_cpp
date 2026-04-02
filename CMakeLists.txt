@@ -27,8 +27,37 @@ FetchContent_MakeAvailable(Catch2)
 
 enable_testing()
 
-add_executable(monkey_smoke_tests
+add_library(monkey_lib
     src/lexer.cpp
+)
+
+target_include_directories(monkey_lib
+    PRIVATE
+        include
+)
+
+target_link_libraries(monkey_lib
+    PRIVATE
+        project_warnings
+)
+
+add_executable(monkey_repl
+    src/main.cpp
+    src/repl.cpp
+)
+
+target_include_directories(monkey_repl
+    PRIVATE
+        include
+)
+
+target_link_libraries(monkey_repl
+    PRIVATE
+        monkey_lib
+        project_warnings
+)
+
+add_executable(monkey_smoke_tests
     tests/lexer_test.cpp
 )
 
@@ -39,6 +68,7 @@ target_include_directories(monkey_smoke_tests
 
 target_link_libraries(monkey_smoke_tests
     PRIVATE
+        monkey_lib
         project_warnings
         Catch2::Catch2WithMain
 )

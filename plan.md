@@ -25,13 +25,13 @@ Create a greenfield C++ implementation of Monkey based on Thorsten Ball’s book
 4. [DONE]Add Catch2 through CMake and verify the test target can be discovered.
 5. [DONE]Add a minimal smoke test so the test runner is working before language code exists.
 6. [DONE]Define the token enum and token struct.
-7. List all Monkey keywords, operators, and delimiters in one central token table.
-8. Write lexer tests for single-character tokens.
-9. Implement basic lexer scanning for punctuation and operators.
-10. Add lexer tests for identifiers, integers, and keywords.
-11. Implement identifier and integer scanning.
-12. Add lexer tests for multi-character operators like `==` and `!=`.
-13. Implement lookahead support in the lexer.
+7. [DONE]List all Monkey keywords, operators, and delimiters in one central token table.
+8. [DONE]Write lexer tests for single-character tokens.
+9. [DONE]Implement basic lexer scanning for punctuation and operators.
+10. [DONE]Add lexer tests for identifiers, integers, and keywords.
+11. [DONE]Implement identifier and integer scanning.
+12. [DONE]Add lexer tests for multi-character operators like `==` and `!=`.
+13. [DONE]Implement lookahead support in the lexer.
 14. Add lexer tests for strings.
 15. Implement string literal scanning.
 16. Add lexer tests for arrays, hashes, and complex mixed input.
