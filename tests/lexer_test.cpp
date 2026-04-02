@@ -4,13 +4,39 @@
 #include "monkey/token.hpp"
 
 TEST_CASE("TestNextToken", "[lexer]") {
+    constexpr auto input = "=+(){},;";
+
+    const Token expected_tokens[] = {
+        {TokenType::Assign, "="},
+        {TokenType::Plus, "+"},
+        {TokenType::LeftParen, "("},
+        {TokenType::RightParen, ")"},
+        {TokenType::LeftBrace, "{"},
+        {TokenType::RightBrace, "}"},
+        {TokenType::Comma, ","},
+        {TokenType::Semicolon, ";"},
+        {TokenType::EndOfFile, ""},
+    };
+
+    auto lexer = Lexer {input};
+
+    for (const auto& expected : expected_tokens) {
+        const auto token = lexer.next_token();
+        REQUIRE(token.type == expected.type);
+        REQUIRE(token.literal == expected.literal);
+    }
+}
+
+TEST_CASE("TestNextToken extended input", "[lexer]") {
     constexpr auto input =
         "let five = 5;\n"
         "let ten = 10;\n"
         "let add = fn(x, y) {\n"
         "  x + y;\n"
         "};\n"
-        "let result = add(five, ten);";
+        "let result = add(five, ten);\n"
+        "!-/*5;\n"
+        "5 < 10 > 5;";
 
     const Token expected_tokens[] = {
         {TokenType::Let, "let"},
@@ -48,6 +74,18 @@ TEST_CASE("TestNextToken", "[lexer]") {
         {TokenType::Comma, ","},
         {TokenType::Identifier, "ten"},
         {TokenType::RightParen, ")"},
+        {TokenType::Semicolon, ";"},
+        {TokenType::Bang, "!"},
+        {TokenType::Minus, "-"},
+        {TokenType::Slash, "/"},
+        {TokenType::Asterisk, "*"},
+        {TokenType::Integer, "5"},
+        {TokenType::Semicolon, ";"},
+        {TokenType::Integer, "5"},
+        {TokenType::LessThan, "<"},
+        {TokenType::Integer, "10"},
+        {TokenType::GreaterThan, ">"},
+        {TokenType::Integer, "5"},
         {TokenType::Semicolon, ";"},
         {TokenType::EndOfFile, ""},
     };

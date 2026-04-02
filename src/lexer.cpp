@@ -11,9 +11,27 @@ auto Lexer::next_token() -> Token {
         case '=':
             read_char();
             return {TokenType::Assign, "="};
+        case '!':
+            read_char();
+            return {TokenType::Bang, "!"};
         case '+':
             read_char();
             return {TokenType::Plus, "+"};
+        case '-':
+            read_char();
+            return {TokenType::Minus, "-"};
+        case '/':
+            read_char();
+            return {TokenType::Slash, "/"};
+        case '*':
+            read_char();
+            return {TokenType::Asterisk, "*"};
+        case '<':
+            read_char();
+            return {TokenType::LessThan, "<"};
+        case '>':
+            read_char();
+            return {TokenType::GreaterThan, ">"};
         case '(':
             read_char();
             return {TokenType::LeftParen, "("};

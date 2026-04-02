@@ -11,7 +11,13 @@ enum class TokenType {
     Integer,
     
     Assign,
+    Bang,
     Plus,
+    Minus,
+    Slash,
+    Asterisk,
+    LessThan,
+    GreaterThan,
     
     Comma,
     Semicolon,
@@ -54,8 +60,20 @@ struct Token {
             return "Integer";
         case TokenType::Assign:
             return "Assign";
+        case TokenType::Bang:
+            return "Bang";
         case TokenType::Plus:
             return "Plus";
+        case TokenType::Minus:
+            return "Minus";
+        case TokenType::Slash:
+            return "Slash";
+        case TokenType::Asterisk:
+            return "Asterisk";
+        case TokenType::LessThan:
+            return "LessThan";
+        case TokenType::GreaterThan:
+            return "GreaterThan";
         case TokenType::Comma:
             return "Comma";
         case TokenType::Semicolon:
