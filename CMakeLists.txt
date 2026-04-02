@@ -28,7 +28,13 @@ FetchContent_MakeAvailable(Catch2)
 enable_testing()
 
 add_executable(monkey_smoke_tests
-    tests/smoke_test.cpp
+    src/lexer.cpp
+    tests/lexer_test.cpp
+)
+
+target_include_directories(monkey_smoke_tests
+    PRIVATE
+        include
 )
 
 target_link_libraries(monkey_smoke_tests
