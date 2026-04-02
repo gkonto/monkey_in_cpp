@@ -9,9 +9,19 @@ auto Lexer::next_token() -> Token {
 
     switch (ch_) {
         case '=':
+            if (peek_char() == '=') {
+                read_char();
+                read_char();
+                return {TokenType::Equal, "=="};
+            }
             read_char();
             return {TokenType::Assign, "="};
         case '!':
+            if (peek_char() == '=') {
+                read_char();
+                read_char();
+                return {TokenType::NotEqual, "!="};
+            }
             read_char();
             return {TokenType::Bang, "!"};
         case '+':
@@ -90,6 +100,14 @@ auto Lexer::read_number() -> std::string {
 
 auto Lexer::current_char() const -> char {
     return ch_;
+}
+
+auto Lexer::peek_char() const -> char {
+    if (read_position_ >= input_.size()) {
+        return 0;
+    }
+
+    return input_[read_position_];
 }
 
 auto Lexer::is_letter(char ch) -> bool {

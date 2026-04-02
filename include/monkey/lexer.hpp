@@ -14,6 +14,7 @@ private:
     [[nodiscard]] auto read_identifier() -> std::string;
     [[nodiscard]] auto read_number() -> std::string;
     [[nodiscard]] auto current_char() const -> char;
+    [[nodiscard]] auto peek_char() const -> char;
     [[nodiscard]] static auto is_letter(char ch) -> bool;
     [[nodiscard]] static auto is_digit(char ch) -> bool;
     void read_char();

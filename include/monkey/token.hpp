@@ -12,6 +12,8 @@ enum class TokenType {
     
     Assign,
     Bang,
+    Equal,
+    NotEqual,
     Plus,
     Minus,
     Slash,
@@ -87,6 +89,10 @@ struct Token {
             return "Assign";
         case TokenType::Bang:
             return "Bang";
+        case TokenType::Equal:
+            return "Equal";
+        case TokenType::NotEqual:
+            return "NotEqual";
         case TokenType::Plus:
             return "Plus";
         case TokenType::Minus:
