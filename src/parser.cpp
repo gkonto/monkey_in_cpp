@@ -90,6 +90,17 @@ auto Parser::parse_expression(Precedence precedence) -> std::unique_ptr<Expressi
     }
 
     auto left_expr = prefix_fn();
+
+    while (!peek_token_is(TokenType::Semicolon) && precedence < peek_precedence()) {
+        auto infix_fn = infix_parse_fn();
+        if (!infix_fn) {
+            return left_expr;
+        }
+
+        next_token();
+        left_expr = infix_fn(std::move(left_expr));
+    }
+
     return left_expr;
 }
 
@@ -120,6 +131,18 @@ auto Parser::parse_prefix_expression() -> std::unique_ptr<PrefixExpression> {
 
     next_token();
     expression->right = parse_expression(Precedence::Prefix);
+    return expression;
+}
+
+auto Parser::parse_infix_expression(std::unique_ptr<Expression> left) -> std::unique_ptr<Expression> {
+    auto expression = std::make_unique<InfixExpression>();
+    expression->token = current_token_;
+    expression->op = current_token_.literal;
+    expression->left = std::move(left);
+
+    const auto precedence = current_precedence();
+    next_token();
+    expression->right = parse_expression(precedence);
     return expression;
 }
 
@@ -177,4 +200,49 @@ auto Parser::prefix_parse_fn() -> ParsePrefixFn {
     }
 
     return {};
+}
+
+auto Parser::infix_parse_fn() -> ParseInfixFn {
+    switch (peek_token_.type) {
+        case TokenType::Plus:
+        case TokenType::Minus:
+        case TokenType::Slash:
+        case TokenType::Asterisk:
+        case TokenType::Equal:
+        case TokenType::NotEqual:
+        case TokenType::LessThan:
+        case TokenType::GreaterThan:
+            return [this](std::unique_ptr<Expression> left) {
+                return parse_infix_expression(std::move(left));
+            };
+        default:
+            return {};
+    }
+}
+
+auto Parser::current_precedence() const -> Precedence {
+    return token_precedence(current_token_.type);
+}
+
+auto Parser::peek_precedence() const -> Precedence {
+    return token_precedence(peek_token_.type);
+}
+
+auto Parser::token_precedence(TokenType type) -> Precedence {
+    switch (type) {
+        case TokenType::Equal:
+        case TokenType::NotEqual:
+            return Precedence::Equals;
+        case TokenType::LessThan:
+        case TokenType::GreaterThan:
+            return Precedence::LessGreater;
+        case TokenType::Plus:
+        case TokenType::Minus:
+            return Precedence::Sum;
+        case TokenType::Slash:
+        case TokenType::Asterisk:
+            return Precedence::Product;
+        default:
+            return Precedence::Lowest;
+    }
 }

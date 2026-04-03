@@ -31,6 +31,14 @@ void test_return_statement(const Statement* statement) {
     REQUIRE(return_statement->token_literal() == "return");
 }
 
+void test_integer_literal(const Expression* expression, std::int64_t expected_value) {
+    REQUIRE(expression != nullptr);
+
+    const auto* integer_literal = dynamic_cast<const IntegerLiteral*>(expression);
+    REQUIRE(integer_literal != nullptr);
+    REQUIRE(integer_literal->value == expected_value);
+}
+
 }  // namespace
 
 TEST_CASE("TestLetStatement", "[parser]") {
@@ -140,8 +148,48 @@ TEST_CASE("TestParsingPrefix", "[parser]") {
         REQUIRE(prefix_expression->op == test_case.op);
         REQUIRE(prefix_expression->right != nullptr);
 
-        const auto* integer_literal = dynamic_cast<const IntegerLiteral*>(prefix_expression->right.get());
-        REQUIRE(integer_literal != nullptr);
-        REQUIRE(integer_literal->value == test_case.integer_value);
+        test_integer_literal(prefix_expression->right.get(), test_case.integer_value);
+    }
+}
+
+TEST_CASE("TestParsingInfixExpressions", "[parser]") {
+    struct TestCase {
+        std::string_view input;
+        std::int64_t left_value;
+        std::string_view op;
+        std::int64_t right_value;
+    };
+
+    constexpr TestCase test_cases[] = {
+        {"5 + 5;", 5, "+", 5},
+        {"5 - 5;", 5, "-", 5},
+        {"5 * 5;", 5, "*", 5},
+        {"5 / 5;", 5, "/", 5},
+        {"5 > 5;", 5, ">", 5},
+        {"5 < 5;", 5, "<", 5},
+        {"5 == 5;", 5, "==", 5},
+        {"5 != 5;", 5, "!=", 5},
+    };
+
+    for (const auto& test_case : test_cases) {
+        auto lexer = Lexer {test_case.input};
+        auto parser = Parser {lexer};
+        const auto program = parser.parse_program();
+
+        check_parser_errors(parser);
+        REQUIRE(program.statements.size() == 1);
+
+        const auto* statement = dynamic_cast<const ExpressionStatement*>(program.statements[0].get());
+        REQUIRE(statement != nullptr);
+        REQUIRE(statement->expression != nullptr);
+
+        const auto* infix_expression = dynamic_cast<const InfixExpression*>(statement->expression.get());
+        REQUIRE(infix_expression != nullptr);
+        REQUIRE(infix_expression->left != nullptr);
+        REQUIRE(infix_expression->op == test_case.op);
+        REQUIRE(infix_expression->right != nullptr);
+
+        test_integer_literal(infix_expression->left.get(), test_case.left_value);
+        test_integer_literal(infix_expression->right.get(), test_case.right_value);
     }
 }
