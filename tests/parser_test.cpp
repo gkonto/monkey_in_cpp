@@ -8,6 +8,12 @@
 
 namespace {
 
+void check_parser_errors(const Parser& parser) {
+    const auto& errors = parser.errors();
+
+    REQUIRE(errors.empty());
+}
+
 void test_let_statement(const Statement* statement, std::string_view expected_name) {
     REQUIRE(statement != nullptr);
 
@@ -29,6 +35,7 @@ TEST_CASE("TestLetStatement", "[parser]") {
     auto parser = Parser{lexer};
     const auto program = parser.parse_program();
 
+    check_parser_errors(parser);
     REQUIRE(program.statements.size() == 3);
 
     constexpr std::string_view expected_identifiers[] = {"x", "y", "foobar"};

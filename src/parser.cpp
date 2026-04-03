@@ -1,6 +1,7 @@
 #include "monkey/parser.hpp"
 
 #include <memory>
+#include <string>
 
 Parser::Parser(Lexer lexer) : lexer_(std::move(lexer)) {
     next_token();
@@ -26,6 +27,10 @@ auto Parser::parse_program() -> Program {
     return program;
 }
 
+auto Parser::errors() const -> const std::vector<std::string>& {
+    return errors_;
+}
+
 auto Parser::current_token_is(TokenType type) const -> bool {
     return current_token_.type == type;
 }
@@ -36,11 +41,19 @@ auto Parser::peek_token_is(TokenType type) const -> bool {
 
 auto Parser::expect_peek(TokenType type) -> bool {
     if (!peek_token_is(type)) {
+        peek_error(type);
         return false;
     }
 
     next_token();
     return true;
+}
+
+void Parser::peek_error(TokenType type) {
+    errors_.push_back(
+        "expected next token to be " + std::string(to_string(type)) +
+        ", got " + std::string(to_string(peek_token_.type)) + " instead"
+    );
 }
 
 auto Parser::parse_statement() -> std::unique_ptr<Statement> {
