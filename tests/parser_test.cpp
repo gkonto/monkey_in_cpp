@@ -193,3 +193,34 @@ TEST_CASE("TestParsingInfixExpressions", "[parser]") {
         test_integer_literal(infix_expression->right.get(), test_case.right_value);
     }
 }
+
+TEST_CASE("TestOperatorPrecedenceParsing", "[parser]") {
+    struct TestCase {
+        std::string_view input;
+        std::string_view expected;
+    };
+
+    constexpr TestCase test_cases[] = {
+        {"-a * b", "((-a) * b)"},
+        {"!-a", "(!(-a))"},
+        {"a + b + c", "((a + b) + c)"},
+        {"a + b - c", "((a + b) - c)"},
+        {"a * b * c", "((a * b) * c)"},
+        {"a * b / c", "((a * b) / c)"},
+        {"a + b / c", "(a + (b / c))"},
+        {"a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"},
+        {"3 + 4; -5 * 5", "(3 + 4)((-5) * 5)"},
+        {"5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))"},
+        {"5 < 4 != 3 > 4", "((5 < 4) != (3 > 4))"},
+        {"3 + 4 * 5 == 3 * 1 + 4 * 5", "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))"},
+    };
+
+    for (const auto& test_case : test_cases) {
+        auto lexer = Lexer {test_case.input};
+        auto parser = Parser {lexer};
+        const auto program = parser.parse_program();
+
+        check_parser_errors(parser);
+        REQUIRE(program.as_string() == test_case.expected);
+    }
+}
