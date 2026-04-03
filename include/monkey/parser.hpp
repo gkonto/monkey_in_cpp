@@ -21,6 +21,7 @@ private:
     void peek_error(TokenType type);
     [[nodiscard]] auto parse_statement() -> std::unique_ptr<Statement>;
     [[nodiscard]] auto parse_let_statement() -> std::unique_ptr<LetStatement>;
+    [[nodiscard]] auto parse_return_statement() -> std::unique_ptr<ReturnStatement>;
 
     Lexer lexer_;
     Token current_token_;

@@ -23,6 +23,14 @@ void test_let_statement(const Statement* statement, std::string_view expected_na
     REQUIRE(let_statement->name.literal == expected_name);
 }
 
+void test_return_statement(const Statement* statement) {
+    REQUIRE(statement != nullptr);
+
+    const auto* return_statement = dynamic_cast<const ReturnStatement*>(statement);
+    REQUIRE(return_statement != nullptr);
+    REQUIRE(return_statement->token_literal() == "return");
+}
+
 }  // namespace
 
 TEST_CASE("TestLetStatement", "[parser]") {
@@ -42,5 +50,23 @@ TEST_CASE("TestLetStatement", "[parser]") {
 
     for (std::size_t index = 0; index < std::size(expected_identifiers); ++index) {
         test_let_statement(program.statements[index].get(), expected_identifiers[index]);
+    }
+}
+
+TEST_CASE("TestReturnStatements", "[parser]") {
+    constexpr auto input =
+        "return 5;\n"
+        "return 10;\n"
+        "return 993322;";
+
+    auto lexer = Lexer{input};
+    auto parser = Parser{lexer};
+    const auto program = parser.parse_program();
+
+    check_parser_errors(parser);
+    REQUIRE(program.statements.size() == 3);
+
+    for (const auto& statement : program.statements) {
+        test_return_statement(statement.get());
     }
 }

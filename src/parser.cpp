@@ -61,6 +61,10 @@ auto Parser::parse_statement() -> std::unique_ptr<Statement> {
         return parse_let_statement();
     }
 
+    if (current_token_is(TokenType::Return)) {
+        return parse_return_statement();
+    }
+
     return nullptr;
 }
 
@@ -77,6 +81,19 @@ auto Parser::parse_let_statement() -> std::unique_ptr<LetStatement> {
     if (!expect_peek(TokenType::Assign)) {
         return nullptr;
     }
+
+    while (!current_token_is(TokenType::Semicolon)) {
+        next_token();
+    }
+
+    return statement;
+}
+
+auto Parser::parse_return_statement() -> std::unique_ptr<ReturnStatement> {
+    auto statement = std::make_unique<ReturnStatement>();
+    statement->token = current_token_;
+
+    next_token();
 
     while (!current_token_is(TokenType::Semicolon)) {
         next_token();

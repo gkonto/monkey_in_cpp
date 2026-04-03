@@ -50,3 +50,12 @@ struct LetStatement : Statement {
         return token.literal;
     }
 };
+
+struct ReturnStatement : Statement {
+    Token token;
+    std::unique_ptr<Expression> return_value;
+
+    [[nodiscard]] auto token_literal() const -> std::string override {
+        return token.literal;
+    }
+};
