@@ -32,11 +32,13 @@ private:
     [[nodiscard]] auto peek_token_is(TokenType type) const -> bool;
     [[nodiscard]] auto expect_peek(TokenType type) -> bool;
     void peek_error(TokenType type);
+    void no_prefix_parse_fn_error(TokenType type);
     [[nodiscard]] auto parse_statement() -> std::unique_ptr<Statement>;
     [[nodiscard]] auto parse_expression_statement() -> std::unique_ptr<ExpressionStatement>;
     [[nodiscard]] auto parse_expression(Precedence precedence) -> std::unique_ptr<Expression>;
     [[nodiscard]] auto parse_identifier() -> std::unique_ptr<Identifier>;
     [[nodiscard]] auto parse_integer_literal() -> std::unique_ptr<IntegerLiteral>;
+    [[nodiscard]] auto parse_prefix_expression() -> std::unique_ptr<PrefixExpression>;
     [[nodiscard]] auto parse_let_statement() -> std::unique_ptr<LetStatement>;
     [[nodiscard]] auto parse_return_statement() -> std::unique_ptr<ReturnStatement>;
     [[nodiscard]] auto prefix_parse_fn() -> ParsePrefixFn;

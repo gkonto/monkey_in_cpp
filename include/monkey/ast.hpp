@@ -48,6 +48,27 @@ struct IntegerLiteral : Expression {
     }
 };
 
+struct PrefixExpression : Expression {
+    Token token;
+    std::string op;
+    std::unique_ptr<Expression> right;
+
+    [[nodiscard]] auto token_literal() const -> std::string override {
+        return token.literal;
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        std::string out = "(" + op;
+
+        if (right != nullptr) {
+            out += right->as_string();
+        }
+
+        out += ")";
+        return out;
+    }
+};
+
 struct ExpressionStatement : Statement {
     Token token;
     std::unique_ptr<Expression> expression;

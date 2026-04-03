@@ -83,15 +83,20 @@ auto Parser::parse_expression_statement() -> std::unique_ptr<ExpressionStatement
 }
 
 auto Parser::parse_expression(Precedence precedence) -> std::unique_ptr<Expression> {
-    static_cast<void>(precedence);
-
     auto prefix_fn = prefix_parse_fn();
     if (!prefix_fn) {
+        no_prefix_parse_fn_error(current_token_.type);
         return nullptr;
     }
 
     auto left_expr = prefix_fn();
     return left_expr;
+}
+
+void Parser::no_prefix_parse_fn_error(TokenType type) {
+    errors_.push_back(
+        "no prefix parse function for " + std::string(to_string(type)) + " found"
+    );
 }
 
 auto Parser::parse_identifier() -> std::unique_ptr<Identifier> {
@@ -106,6 +111,16 @@ auto Parser::parse_integer_literal() -> std::unique_ptr<IntegerLiteral> {
     literal->token = current_token_;
     literal->value = static_cast<std::int64_t>(std::stoll(current_token_.literal));
     return literal;
+}
+
+auto Parser::parse_prefix_expression() -> std::unique_ptr<PrefixExpression> {
+    auto expression = std::make_unique<PrefixExpression>();
+    expression->token = current_token_;
+    expression->op = current_token_.literal;
+
+    next_token();
+    expression->right = parse_expression(Precedence::Prefix);
+    return expression;
 }
 
 auto Parser::parse_let_statement() -> std::unique_ptr<LetStatement> {
@@ -152,6 +167,12 @@ auto Parser::prefix_parse_fn() -> ParsePrefixFn {
     if (current_token_is(TokenType::Integer)) {
         return [this]() {
             return parse_integer_literal();
+        };
+    }
+
+    if (current_token_is(TokenType::Bang) || current_token_is(TokenType::Minus)) {
+        return [this]() {
+            return parse_prefix_expression();
         };
     }
 
