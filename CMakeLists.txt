@@ -29,6 +29,7 @@ enable_testing()
 
 add_library(monkey_lib
     src/lexer.cpp
+    src/parser.cpp
 )
 
 target_include_directories(monkey_lib
@@ -58,7 +59,9 @@ target_link_libraries(monkey_repl
 )
 
 add_executable(monkey_smoke_tests
+    tests/ast_test.cpp
     tests/lexer_test.cpp
+    tests/parser_test.cpp
 )
 
 target_include_directories(monkey_smoke_tests
