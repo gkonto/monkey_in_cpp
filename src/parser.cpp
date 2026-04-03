@@ -1,6 +1,8 @@
 #include "monkey/parser.hpp"
 
+#include <cstdint>
 #include <memory>
+#include <string_view>
 #include <string>
 
 Parser::Parser(Lexer lexer) : lexer_(std::move(lexer)) {
@@ -99,6 +101,13 @@ auto Parser::parse_identifier() -> std::unique_ptr<Identifier> {
     return identifier;
 }
 
+auto Parser::parse_integer_literal() -> std::unique_ptr<IntegerLiteral> {
+    auto literal = std::make_unique<IntegerLiteral>();
+    literal->token = current_token_;
+    literal->value = static_cast<std::int64_t>(std::stoll(current_token_.literal));
+    return literal;
+}
+
 auto Parser::parse_let_statement() -> std::unique_ptr<LetStatement> {
     auto statement = std::make_unique<LetStatement>();
     statement->token = current_token_;
@@ -137,6 +146,12 @@ auto Parser::prefix_parse_fn() -> ParsePrefixFn {
     if (current_token_is(TokenType::Identifier)) {
         return [this]() {
             return parse_identifier();
+        };
+    }
+
+    if (current_token_is(TokenType::Integer)) {
+        return [this]() {
+            return parse_integer_literal();
         };
     }
 

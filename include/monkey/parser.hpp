@@ -36,6 +36,7 @@ private:
     [[nodiscard]] auto parse_expression_statement() -> std::unique_ptr<ExpressionStatement>;
     [[nodiscard]] auto parse_expression(Precedence precedence) -> std::unique_ptr<Expression>;
     [[nodiscard]] auto parse_identifier() -> std::unique_ptr<Identifier>;
+    [[nodiscard]] auto parse_integer_literal() -> std::unique_ptr<IntegerLiteral>;
     [[nodiscard]] auto parse_let_statement() -> std::unique_ptr<LetStatement>;
     [[nodiscard]] auto parse_return_statement() -> std::unique_ptr<ReturnStatement>;
     [[nodiscard]] auto prefix_parse_fn() -> ParsePrefixFn;

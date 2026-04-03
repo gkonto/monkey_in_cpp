@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -31,6 +32,19 @@ struct Identifier : Expression {
 
     [[nodiscard]] auto as_string() const -> std::string override {
         return value;
+    }
+};
+
+struct IntegerLiteral : Expression {
+    Token token;
+    std::int64_t value {0};
+
+    [[nodiscard]] auto token_literal() const -> std::string override {
+        return token.literal;
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        return token.literal;
     }
 };
 

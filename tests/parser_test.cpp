@@ -90,3 +90,23 @@ TEST_CASE("TestIdentifierExpression", "[parser]") {
     REQUIRE(identifier->value == "foobar");
     REQUIRE(identifier->token_literal() == "foobar");
 }
+
+TEST_CASE("TestIntegerLiteralExpression", "[parser]") {
+    constexpr auto input = "5;";
+
+    auto lexer = Lexer {input};
+    auto parser = Parser {lexer};
+    const auto program = parser.parse_program();
+
+    check_parser_errors(parser);
+    REQUIRE(program.statements.size() == 1);
+
+    const auto* statement = dynamic_cast<const ExpressionStatement*>(program.statements[0].get());
+    REQUIRE(statement != nullptr);
+    REQUIRE(statement->expression != nullptr);
+
+    const auto* integer_literal = dynamic_cast<const IntegerLiteral*>(statement->expression.get());
+    REQUIRE(integer_literal != nullptr);
+    REQUIRE(integer_literal->value == 5);
+    REQUIRE(integer_literal->token_literal() == "5");
+}
