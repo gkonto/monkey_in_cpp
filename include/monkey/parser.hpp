@@ -20,6 +20,9 @@ private:
     [[nodiscard]] auto expect_peek(TokenType type) -> bool;
     void peek_error(TokenType type);
     [[nodiscard]] auto parse_statement() -> std::unique_ptr<Statement>;
+    [[nodiscard]] auto parse_expression_statement() -> std::unique_ptr<ExpressionStatement>;
+    [[nodiscard]] auto parse_expression() -> std::unique_ptr<Expression>;
+    [[nodiscard]] auto parse_identifier() -> std::unique_ptr<Identifier>;
     [[nodiscard]] auto parse_let_statement() -> std::unique_ptr<LetStatement>;
     [[nodiscard]] auto parse_return_statement() -> std::unique_ptr<ReturnStatement>;
 

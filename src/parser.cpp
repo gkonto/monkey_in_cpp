@@ -65,7 +65,34 @@ auto Parser::parse_statement() -> std::unique_ptr<Statement> {
         return parse_return_statement();
     }
 
+    return parse_expression_statement();
+}
+
+auto Parser::parse_expression_statement() -> std::unique_ptr<ExpressionStatement> {
+    auto statement = std::make_unique<ExpressionStatement>();
+    statement->token = current_token_;
+    statement->expression = parse_expression();
+
+    if (peek_token_is(TokenType::Semicolon)) {
+        next_token();
+    }
+
+    return statement;
+}
+
+auto Parser::parse_expression() -> std::unique_ptr<Expression> {
+    if (current_token_is(TokenType::Identifier)) {
+        return parse_identifier();
+    }
+
     return nullptr;
+}
+
+auto Parser::parse_identifier() -> std::unique_ptr<Identifier> {
+    auto identifier = std::make_unique<Identifier>();
+    identifier->token = current_token_;
+    identifier->value = current_token_.literal;
+    return identifier;
 }
 
 auto Parser::parse_let_statement() -> std::unique_ptr<LetStatement> {

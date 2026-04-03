@@ -70,3 +70,23 @@ TEST_CASE("TestReturnStatements", "[parser]") {
         test_return_statement(statement.get());
     }
 }
+
+TEST_CASE("TestIdentifierExpression", "[parser]") {
+    constexpr auto input = "foobar;";
+
+    auto lexer = Lexer{input};
+    auto parser = Parser{lexer};
+    const auto program = parser.parse_program();
+
+    check_parser_errors(parser);
+    REQUIRE(program.statements.size() == 1);
+
+    const auto* statement = dynamic_cast<const ExpressionStatement*>(program.statements[0].get());
+    REQUIRE(statement != nullptr);
+    REQUIRE(statement->expression != nullptr);
+
+    const auto* identifier = dynamic_cast<const Identifier*>(statement->expression.get());
+    REQUIRE(identifier != nullptr);
+    REQUIRE(identifier->value == "foobar");
+    REQUIRE(identifier->token_literal() == "foobar");
+}

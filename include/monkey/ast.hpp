@@ -10,6 +10,7 @@ struct Node {
     virtual ~Node() = default;
 
     [[nodiscard]] virtual auto token_literal() const -> std::string = 0;
+    [[nodiscard]] virtual auto as_string() const -> std::string = 0;
 };
 
 struct Statement : Node {
@@ -27,17 +28,50 @@ struct Identifier : Expression {
     [[nodiscard]] auto token_literal() const -> std::string override {
         return token.literal;
     }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        return value;
+    }
 };
 
-struct Program {
+struct ExpressionStatement : Statement {
+    Token token;
+    std::unique_ptr<Expression> expression;
+
+    [[nodiscard]] auto token_literal() const -> std::string override {
+        return token.literal;
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        if (expression == nullptr) {
+            return "";
+        }
+
+        return expression->as_string();
+    }
+};
+
+struct Program : Node {
     std::vector<std::unique_ptr<Statement>> statements {};
 
-    [[nodiscard]] auto token_literal() const -> std::string {
+    [[nodiscard]] auto token_literal() const -> std::string override {
         if (statements.empty() || statements.front() == nullptr) {
             return "";
         }
 
         return statements.front()->token_literal();
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        std::string out {};
+
+        for (const auto& statement : statements) {
+            if (statement != nullptr) {
+                out += statement->as_string();
+            }
+        }
+
+        return out;
     }
 };
 
@@ -49,6 +83,17 @@ struct LetStatement : Statement {
     [[nodiscard]] auto token_literal() const -> std::string override {
         return token.literal;
     }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        std::string out = token_literal() + " " + name.literal + " = ";
+
+        if (value != nullptr) {
+            out += value->as_string();
+        }
+
+        out += ";";
+        return out;
+    }
 };
 
 struct ReturnStatement : Statement {
@@ -57,5 +102,16 @@ struct ReturnStatement : Statement {
 
     [[nodiscard]] auto token_literal() const -> std::string override {
         return token.literal;
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        std::string out = token_literal() + " ";
+
+        if (return_value != nullptr) {
+            out += return_value->as_string();
+        }
+
+        out += ";";
+        return out;
     }
 };
