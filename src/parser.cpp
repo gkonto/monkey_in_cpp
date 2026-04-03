@@ -71,7 +71,7 @@ auto Parser::parse_statement() -> std::unique_ptr<Statement> {
 auto Parser::parse_expression_statement() -> std::unique_ptr<ExpressionStatement> {
     auto statement = std::make_unique<ExpressionStatement>();
     statement->token = current_token_;
-    statement->expression = parse_expression();
+    statement->expression = parse_expression(Precedence::Lowest);
 
     if (peek_token_is(TokenType::Semicolon)) {
         next_token();
@@ -80,12 +80,16 @@ auto Parser::parse_expression_statement() -> std::unique_ptr<ExpressionStatement
     return statement;
 }
 
-auto Parser::parse_expression() -> std::unique_ptr<Expression> {
-    if (current_token_is(TokenType::Identifier)) {
-        return parse_identifier();
+auto Parser::parse_expression(Precedence precedence) -> std::unique_ptr<Expression> {
+    static_cast<void>(precedence);
+
+    auto prefix_fn = prefix_parse_fn();
+    if (!prefix_fn) {
+        return nullptr;
     }
 
-    return nullptr;
+    auto left_expr = prefix_fn();
+    return left_expr;
 }
 
 auto Parser::parse_identifier() -> std::unique_ptr<Identifier> {
@@ -127,4 +131,14 @@ auto Parser::parse_return_statement() -> std::unique_ptr<ReturnStatement> {
     }
 
     return statement;
+}
+
+auto Parser::prefix_parse_fn() -> ParsePrefixFn {
+    if (current_token_is(TokenType::Identifier)) {
+        return [this]() {
+            return parse_identifier();
+        };
+    }
+
+    return {};
 }

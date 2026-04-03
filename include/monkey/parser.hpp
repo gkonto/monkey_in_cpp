@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -8,6 +9,16 @@
 
 class Parser {
 public:
+    enum class Precedence {
+        Lowest,
+        Equals,
+        LessGreater,
+        Sum,
+        Product,
+        Prefix,
+        Call
+    };
+
     explicit Parser(Lexer lexer);
 
     void next_token();
@@ -15,16 +26,19 @@ public:
     [[nodiscard]] auto errors() const -> const std::vector<std::string>&;
 
 private:
+    using ParsePrefixFn = std::function<std::unique_ptr<Expression>()>;
+
     [[nodiscard]] auto current_token_is(TokenType type) const -> bool;
     [[nodiscard]] auto peek_token_is(TokenType type) const -> bool;
     [[nodiscard]] auto expect_peek(TokenType type) -> bool;
     void peek_error(TokenType type);
     [[nodiscard]] auto parse_statement() -> std::unique_ptr<Statement>;
     [[nodiscard]] auto parse_expression_statement() -> std::unique_ptr<ExpressionStatement>;
-    [[nodiscard]] auto parse_expression() -> std::unique_ptr<Expression>;
+    [[nodiscard]] auto parse_expression(Precedence precedence) -> std::unique_ptr<Expression>;
     [[nodiscard]] auto parse_identifier() -> std::unique_ptr<Identifier>;
     [[nodiscard]] auto parse_let_statement() -> std::unique_ptr<LetStatement>;
     [[nodiscard]] auto parse_return_statement() -> std::unique_ptr<ReturnStatement>;
+    [[nodiscard]] auto prefix_parse_fn() -> ParsePrefixFn;
 
     Lexer lexer_;
     Token current_token_;
