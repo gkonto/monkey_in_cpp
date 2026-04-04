@@ -85,3 +85,24 @@ TEST_CASE("TestEvalNullExpression", "[evaluator]") {
     const auto evaluated = test_eval("");
     test_null_object(evaluated.get());
 }
+
+TEST_CASE("TestBangOperator", "[evaluator]") {
+    struct TestCase {
+        std::string_view input;
+        bool expected;
+    };
+
+    constexpr TestCase test_cases[] = {
+        {"!true", false},
+        {"!false", true},
+        {"!5", false},
+        {"!!true", true},
+        {"!!false", false},
+        {"!!5", true},
+    };
+
+    for (const auto& test_case : test_cases) {
+        const auto evaluated = test_eval(test_case.input);
+        test_boolean_object(evaluated.get(), test_case.expected);
+    }
+}

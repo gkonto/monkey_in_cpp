@@ -35,6 +35,33 @@ namespace {
     return result;
 }
 
+[[nodiscard]] auto eval_bang_operator_expression(const std::shared_ptr<Object>& right) -> std::shared_ptr<Object> {
+    if (right == nativeBoolToBooleanObject(true)) {
+        return nativeBoolToBooleanObject(false);
+    }
+
+    if (right == nativeBoolToBooleanObject(false)) {
+        return nativeBoolToBooleanObject(true);
+    }
+
+    if (right == nullObject()) {
+        return nativeBoolToBooleanObject(true);
+    }
+
+    return nativeBoolToBooleanObject(false);
+}
+
+[[nodiscard]] auto eval_prefix_expression(
+    const std::string& op,
+    const std::shared_ptr<Object>& right
+) -> std::shared_ptr<Object> {
+    if (op == "!") {
+        return eval_bang_operator_expression(right);
+    }
+
+    return nullObject();
+}
+
 }  // namespace
 
 auto eval(const Node* node) -> std::shared_ptr<Object> {
@@ -48,6 +75,11 @@ auto eval(const Node* node) -> std::shared_ptr<Object> {
 
     if (const auto* statement = dynamic_cast<const ExpressionStatement*>(node); statement != nullptr) {
         return eval(statement->expression.get());
+    }
+
+    if (const auto* prefix_expression = dynamic_cast<const PrefixExpression*>(node); prefix_expression != nullptr) {
+        const auto right = eval(prefix_expression->right.get());
+        return eval_prefix_expression(prefix_expression->op, right);
     }
 
     if (const auto* integer_literal = dynamic_cast<const IntegerLiteral*>(node); integer_literal != nullptr) {
