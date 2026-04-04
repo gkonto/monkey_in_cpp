@@ -9,27 +9,36 @@
 
 namespace {
 
+template <typename T>
+void test_literal_expression(const Expression* expression, const T& expected_value);
+
 void check_parser_errors(const Parser& parser) {
     const auto& errors = parser.errors();
 
     REQUIRE(errors.empty());
 }
 
-void test_let_statement(const Statement* statement, std::string_view expected_name) {
+template <typename T>
+void test_let_statement(const Statement* statement, std::string_view expected_name, const T& expected_value) {
     REQUIRE(statement != nullptr);
 
     const auto* let_statement = dynamic_cast<const LetStatement*>(statement);
     REQUIRE(let_statement != nullptr);
     REQUIRE(let_statement->token_literal() == "let");
     REQUIRE(let_statement->name.literal == expected_name);
+    REQUIRE(let_statement->value != nullptr);
+    test_literal_expression(let_statement->value.get(), expected_value);
 }
 
-void test_return_statement(const Statement* statement) {
+template <typename T>
+void test_return_statement(const Statement* statement, const T& expected_value) {
     REQUIRE(statement != nullptr);
 
     const auto* return_statement = dynamic_cast<const ReturnStatement*>(statement);
     REQUIRE(return_statement != nullptr);
     REQUIRE(return_statement->token_literal() == "return");
+    REQUIRE(return_statement->return_value != nullptr);
+    test_literal_expression(return_statement->return_value.get(), expected_value);
 }
 
 void test_identifier(const Expression* expression, std::string_view expected_value) {
@@ -91,10 +100,19 @@ TEST_CASE("TestLetStatement", "[parser]") {
     check_parser_errors(parser);
     REQUIRE(program.statements.size() == 3);
 
-    constexpr std::string_view expected_identifiers[] = {"x", "y", "foobar"};
+    struct TestCase {
+        std::string_view name;
+        std::int64_t value;
+    };
 
-    for (std::size_t index = 0; index < std::size(expected_identifiers); ++index) {
-        test_let_statement(program.statements[index].get(), expected_identifiers[index]);
+    constexpr TestCase test_cases[] = {
+        {"x", 5},
+        {"y", 10},
+        {"foobar", 838383},
+    };
+
+    for (std::size_t index = 0; index < std::size(test_cases); ++index) {
+        test_let_statement(program.statements[index].get(), test_cases[index].name, test_cases[index].value);
     }
 }
 
@@ -111,8 +129,10 @@ TEST_CASE("TestReturnStatements", "[parser]") {
     check_parser_errors(parser);
     REQUIRE(program.statements.size() == 3);
 
-    for (const auto& statement : program.statements) {
-        test_return_statement(statement.get());
+    constexpr std::int64_t expected_values[] = {5, 10, 993322};
+
+    for (std::size_t index = 0; index < std::size(expected_values); ++index) {
+        test_return_statement(program.statements[index].get(), expected_values[index]);
     }
 }
 

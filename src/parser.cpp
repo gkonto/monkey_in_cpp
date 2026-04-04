@@ -312,7 +312,10 @@ auto Parser::parse_let_statement() -> std::unique_ptr<LetStatement> {
         return nullptr;
     }
 
-    while (!current_token_is(TokenType::Semicolon)) {
+    next_token();
+    statement->value = parse_expression(Precedence::Lowest);
+
+    if (peek_token_is(TokenType::Semicolon)) {
         next_token();
     }
 
@@ -324,8 +327,9 @@ auto Parser::parse_return_statement() -> std::unique_ptr<ReturnStatement> {
     statement->token = current_token_;
 
     next_token();
+    statement->return_value = parse_expression(Precedence::Lowest);
 
-    while (!current_token_is(TokenType::Semicolon)) {
+    if (peek_token_is(TokenType::Semicolon)) {
         next_token();
     }
 
