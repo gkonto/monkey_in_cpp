@@ -279,3 +279,13 @@ TEST_CASE("TestFunctionApplication", "[evaluator]") {
         test_integer_object(evaluated.get(), test_case.expected);
     }
 }
+
+TEST_CASE("TestClosures", "[evaluator]") {
+    constexpr auto input =
+        "let newAdder = fn(x) { fn(y) { x + y; }; };\n"
+        "let addTwo = newAdder(2);\n"
+        "addTwo(2);";
+
+    const auto evaluated = test_eval(input);
+    test_integer_object(evaluated.get(), 4);
+}
