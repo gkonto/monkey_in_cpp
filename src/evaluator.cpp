@@ -1,6 +1,9 @@
 #include "monkey/evaluator.hpp"
+#include "monkey/environment.hpp"
 
 #include <memory>
+
+[[nodiscard]] auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Object>;
 
 namespace {
 
@@ -35,11 +38,11 @@ namespace {
     return object != nullptr && object->type() == ObjectType::Error;
 }
 
-[[nodiscard]] auto eval_program(const Program* program) -> std::shared_ptr<Object> {
+[[nodiscard]] auto eval_program(const Program* program, Environment& environment) -> std::shared_ptr<Object> {
     auto result = nullObject();
 
     for (const auto& statement : program->statements) {
-        result = eval(statement.get());
+        result = eval_node(statement.get(), environment);
 
         if (is_error(result)) {
             return result;
@@ -53,11 +56,11 @@ namespace {
     return result;
 }
 
-[[nodiscard]] auto eval_block_statement(const BlockStatement* block) -> std::shared_ptr<Object> {
+[[nodiscard]] auto eval_block_statement(const BlockStatement* block, Environment& environment) -> std::shared_ptr<Object> {
     auto result = nullObject();
 
     for (const auto& statement : block->statements) {
-        result = eval(statement.get());
+        result = eval_node(statement.get(), environment);
 
         if (result->type() == ObjectType::ReturnValue || result->type() == ObjectType::Error) {
             return result;
@@ -83,18 +86,18 @@ namespace {
     return true;
 }
 
-[[nodiscard]] auto eval_if_expression(const IfExpression* expression) -> std::shared_ptr<Object> {
-    const auto condition = eval(expression->condition.get());
+[[nodiscard]] auto eval_if_expression(const IfExpression* expression, Environment& environment) -> std::shared_ptr<Object> {
+    const auto condition = eval_node(expression->condition.get(), environment);
     if (is_error(condition)) {
         return condition;
     }
 
     if (is_truthy(condition)) {
-        return eval(expression->consequence.get());
+        return eval_node(expression->consequence.get(), environment);
     }
 
     if (expression->alternative != nullptr) {
-        return eval(expression->alternative.get());
+        return eval_node(expression->alternative.get(), environment);
     }
 
     return nullObject();
@@ -234,22 +237,32 @@ namespace {
 
 }  // namespace
 
-auto eval(const Node* node) -> std::shared_ptr<Object> {
+auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Object> {
     if (node == nullptr) {
         return nullObject();
     }
 
     if (const auto* program = dynamic_cast<const Program*>(node); program != nullptr) {
-        return eval_program(program);
+        return eval_program(program, environment);
     }
 
     if (const auto* statement = dynamic_cast<const ExpressionStatement*>(node); statement != nullptr) {
-        return eval(statement->expression.get());
+        return eval_node(statement->expression.get(), environment);
+    }
+
+    if (const auto* statement = dynamic_cast<const LetStatement*>(node); statement != nullptr) {
+        const auto value = eval_node(statement->value.get(), environment);
+        if (is_error(value)) {
+            return value;
+        }
+
+        environment.set(statement->name.literal, value);
+        return nullObject();
     }
 
     if (const auto* statement = dynamic_cast<const ReturnStatement*>(node); statement != nullptr) {
         auto result = std::make_shared<ReturnValueObject>();
-        result->value = eval(statement->return_value.get());
+        result->value = eval_node(statement->return_value.get(), environment);
         if (is_error(result->value)) {
             return result->value;
         }
@@ -257,11 +270,11 @@ auto eval(const Node* node) -> std::shared_ptr<Object> {
     }
 
     if (const auto* block = dynamic_cast<const BlockStatement*>(node); block != nullptr) {
-        return eval_block_statement(block);
+        return eval_block_statement(block, environment);
     }
 
     if (const auto* prefix_expression = dynamic_cast<const PrefixExpression*>(node); prefix_expression != nullptr) {
-        const auto right = eval(prefix_expression->right.get());
+        const auto right = eval_node(prefix_expression->right.get(), environment);
         if (is_error(right)) {
             return right;
         }
@@ -269,15 +282,24 @@ auto eval(const Node* node) -> std::shared_ptr<Object> {
     }
 
     if (const auto* infix_expression = dynamic_cast<const InfixExpression*>(node); infix_expression != nullptr) {
-        const auto left = eval(infix_expression->left.get());
+        const auto left = eval_node(infix_expression->left.get(), environment);
         if (is_error(left)) {
             return left;
         }
-        const auto right = eval(infix_expression->right.get());
+        const auto right = eval_node(infix_expression->right.get(), environment);
         if (is_error(right)) {
             return right;
         }
         return eval_infix_expression(infix_expression->op, left, right);
+    }
+
+    if (const auto* identifier = dynamic_cast<const Identifier*>(node); identifier != nullptr) {
+        const auto value = environment.get(identifier->value);
+        if (value != nullptr) {
+            return value;
+        }
+
+        return new_error("identifier not found: " + identifier->value);
     }
 
     if (const auto* integer_literal = dynamic_cast<const IntegerLiteral*>(node); integer_literal != nullptr) {
@@ -291,8 +313,17 @@ auto eval(const Node* node) -> std::shared_ptr<Object> {
     }
 
     if (const auto* if_expression = dynamic_cast<const IfExpression*>(node); if_expression != nullptr) {
-        return eval_if_expression(if_expression);
+        return eval_if_expression(if_expression, environment);
     }
 
     return nullObject();
+}
+
+auto eval(const Node* node, Environment& environment) -> std::shared_ptr<Object> {
+    return eval_node(node, environment);
+}
+
+auto eval(const Node* node) -> std::shared_ptr<Object> {
+    Environment environment;
+    return eval_node(node, environment);
 }

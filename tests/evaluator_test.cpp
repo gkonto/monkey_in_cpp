@@ -216,10 +216,30 @@ TEST_CASE("TestErrorHandling", "[evaluator]") {
             "if (10 > 1) { if (10 > 1) { return true + false; } return 1; }",
             "unknown operator: Boolean + Boolean",
         },
+        {"foobar", "identifier not found: foobar"},
     };
 
     for (const auto& test_case : test_cases) {
         const auto evaluated = test_eval(test_case.input);
         test_error_object(evaluated.get(), test_case.expected_message);
+    }
+}
+
+TEST_CASE("TestLetStatements", "[evaluator]") {
+    struct TestCase {
+        std::string_view input;
+        std::int64_t expected;
+    };
+
+    constexpr TestCase test_cases[] = {
+        {"let a = 5; a;", 5},
+        {"let a = 5 * 5; a;", 25},
+        {"let a = 5; let b = a; b;", 5},
+        {"let a = 5; let b = a; let c = a + b + 5; c;", 15},
+    };
+
+    for (const auto& test_case : test_cases) {
+        const auto evaluated = test_eval(test_case.input);
+        test_integer_object(evaluated.get(), test_case.expected);
     }
 }

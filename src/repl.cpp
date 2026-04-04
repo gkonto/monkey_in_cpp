@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "monkey/environment.hpp"
 #include "monkey/evaluator.hpp"
 #include "monkey/lexer.hpp"
 #include "monkey/parser.hpp"
@@ -19,7 +20,8 @@ void print_parser_errors(std::ostream& output, const std::vector<std::string>& e
 }  // namespace
 
 void start_repl(std::istream& input, std::ostream& output) {
-    std::string line {};
+    Environment environment;
+    std::string line;
 
     while (true) {
         output << ">> ";
@@ -38,7 +40,7 @@ void start_repl(std::istream& input, std::ostream& output) {
             continue;
         }
 
-        const auto evaluated = eval(&program);
+        const auto evaluated = eval(&program, environment);
         if (evaluated != nullptr) {
             output << evaluated->inspect() << '\n';
         }
