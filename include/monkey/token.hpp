@@ -27,6 +27,8 @@ enum class TokenType {
 
     LeftParen,
     RightParen,
+    LeftBracket,
+    RightBracket,
     LeftBrace,
     RightBrace,
 
@@ -116,6 +118,10 @@ struct Token {
             return "LeftParen";
         case TokenType::RightParen:
             return "RightParen";
+        case TokenType::LeftBracket:
+            return "LeftBracket";
+        case TokenType::RightBracket:
+            return "RightBracket";
         case TokenType::LeftBrace:
             return "LeftBrace";
         case TokenType::RightBrace:

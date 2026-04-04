@@ -200,6 +200,67 @@ TEST_CASE("TestStringLiteralExpression", "[parser]") {
     test_string_literal(statement->expression.get(), "hello world");
 }
 
+TEST_CASE("TestParsingArrayLiterals", "[parser]") {
+    constexpr auto input = "[1, 2 * 2, 3 + 3]";
+
+    auto lexer = Lexer {input};
+    auto parser = Parser {lexer};
+    const auto program = parser.parse_program();
+
+    check_parser_errors(parser);
+    REQUIRE(program.statements.size() == 1);
+
+    const auto* statement = dynamic_cast<const ExpressionStatement*>(program.statements[0].get());
+    REQUIRE(statement != nullptr);
+    REQUIRE(statement->expression != nullptr);
+
+    const auto* array = dynamic_cast<const ArrayLiteral*>(statement->expression.get());
+    REQUIRE(array != nullptr);
+    REQUIRE(array->elements.size() == 3);
+
+    test_integer_literal(array->elements[0].get(), 1);
+
+    const auto* second = dynamic_cast<const InfixExpression*>(array->elements[1].get());
+    REQUIRE(second != nullptr);
+    test_literal_expression(second->left.get(), std::int64_t {2});
+    REQUIRE(second->op == "*");
+    test_literal_expression(second->right.get(), std::int64_t {2});
+
+    const auto* third = dynamic_cast<const InfixExpression*>(array->elements[2].get());
+    REQUIRE(third != nullptr);
+    test_literal_expression(third->left.get(), std::int64_t {3});
+    REQUIRE(third->op == "+");
+    test_literal_expression(third->right.get(), std::int64_t {3});
+}
+
+TEST_CASE("TestParsingIndexExpressions", "[parser]") {
+    constexpr auto input = "myArray[1 + 1]";
+
+    auto lexer = Lexer {input};
+    auto parser = Parser {lexer};
+    const auto program = parser.parse_program();
+
+    check_parser_errors(parser);
+    REQUIRE(program.statements.size() == 1);
+
+    const auto* statement = dynamic_cast<const ExpressionStatement*>(program.statements[0].get());
+    REQUIRE(statement != nullptr);
+    REQUIRE(statement->expression != nullptr);
+
+    const auto* index_expression = dynamic_cast<const IndexExpression*>(statement->expression.get());
+    REQUIRE(index_expression != nullptr);
+    REQUIRE(index_expression->left != nullptr);
+    REQUIRE(index_expression->index != nullptr);
+
+    test_literal_expression(index_expression->left.get(), std::string_view {"myArray"});
+
+    const auto* index = dynamic_cast<const InfixExpression*>(index_expression->index.get());
+    REQUIRE(index != nullptr);
+    REQUIRE(index->op == "+");
+    test_literal_expression(index->left.get(), std::int64_t {1});
+    test_literal_expression(index->right.get(), std::int64_t {1});
+}
+
 TEST_CASE("TestParsingPrefix", "[parser]") {
     using Literal = std::variant<std::int64_t, bool>;
 
@@ -315,6 +376,7 @@ TEST_CASE("TestOperatorPrecedenceParsing", "[parser]") {
         {"a + add(b * c) + d", "((a + add((b * c))) + d)"},
         {"add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))", "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))"},
         {"add(a + b + c * d / f + g)", "add((((a + b) + ((c * d) / f)) + g))"},
+        {"a * [1, 2, 3, 4][b * c] * d", "((a * ([1, 2, 3, 4][(b * c)])) * d)"},
     };
 
     for (const auto& test_case : test_cases) {

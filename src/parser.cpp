@@ -138,6 +138,13 @@ auto Parser::parse_string_literal() -> std::unique_ptr<StringLiteral> {
     return literal;
 }
 
+auto Parser::parse_array_literal() -> std::unique_ptr<ArrayLiteral> {
+    auto array = std::make_unique<ArrayLiteral>();
+    array->token = current_token_;
+    array->elements = parse_expression_list(TokenType::RightBracket);
+    return array;
+}
+
 auto Parser::parse_prefix_expression() -> std::unique_ptr<PrefixExpression> {
     auto expression = std::make_unique<PrefixExpression>();
     expression->token = current_token_;
@@ -220,6 +227,21 @@ auto Parser::parse_call_expression(std::unique_ptr<Expression> function) -> std:
     return expression;
 }
 
+auto Parser::parse_index_expression(std::unique_ptr<Expression> left) -> std::unique_ptr<Expression> {
+    auto expression = std::make_unique<IndexExpression>();
+    expression->token = current_token_;
+    expression->left = std::move(left);
+
+    next_token();
+    expression->index = parse_expression(Precedence::Lowest);
+
+    if (!expect_peek(TokenType::RightBracket)) {
+        return nullptr;
+    }
+
+    return expression;
+}
+
 auto Parser::parse_infix_expression(std::unique_ptr<Expression> left) -> std::unique_ptr<Expression> {
     auto expression = std::make_unique<InfixExpression>();
     expression->token = current_token_;
@@ -282,9 +304,13 @@ auto Parser::parse_function_parameters() -> std::vector<std::unique_ptr<Identifi
 }
 
 auto Parser::parse_call_arguments() -> std::vector<std::unique_ptr<Expression>> {
+    return parse_expression_list(TokenType::RightParen);
+}
+
+auto Parser::parse_expression_list(TokenType end) -> std::vector<std::unique_ptr<Expression>> {
     std::vector<std::unique_ptr<Expression>> arguments;
 
-    if (peek_token_is(TokenType::RightParen)) {
+    if (peek_token_is(end)) {
         next_token();
         return arguments;
     }
@@ -298,7 +324,7 @@ auto Parser::parse_call_arguments() -> std::vector<std::unique_ptr<Expression>> 
         arguments.push_back(parse_expression(Precedence::Lowest));
     }
 
-    if (!expect_peek(TokenType::RightParen)) {
+    if (!expect_peek(end)) {
         return {};
     }
 
@@ -368,6 +394,12 @@ auto Parser::prefix_parse_fn() -> ParsePrefixFn {
         };
     }
 
+    if (current_token_is(TokenType::LeftBracket)) {
+        return [this]() {
+            return parse_array_literal();
+        };
+    }
+
     if (current_token_is(TokenType::Bang) || current_token_is(TokenType::Minus)) {
         return [this]() {
             return parse_prefix_expression();
@@ -401,6 +433,10 @@ auto Parser::infix_parse_fn() -> ParseInfixFn {
             return [this](std::unique_ptr<Expression> left) {
                 return parse_call_expression(std::move(left));
             };
+        case TokenType::LeftBracket:
+            return [this](std::unique_ptr<Expression> left) {
+                return parse_index_expression(std::move(left));
+            };
         case TokenType::Plus:
         case TokenType::Minus:
         case TokenType::Slash:
@@ -427,6 +463,8 @@ auto Parser::peek_precedence() const -> Precedence {
 
 auto Parser::token_precedence(TokenType type) -> Precedence {
     switch (type) {
+        case TokenType::LeftBracket:
+            return Precedence::Index;
         case TokenType::LeftParen:
             return Precedence::Call;
         case TokenType::Equal:

@@ -297,6 +297,38 @@ namespace {
     );
 }
 
+[[nodiscard]] auto eval_array_index_expression(
+    const ArrayObject* array,
+    const IntegerObject* index
+) -> std::shared_ptr<Object> {
+    if (index->value < 0) {
+        return nullObject();
+    }
+
+    const auto max_index = static_cast<std::int64_t>(array->elements.size()) - 1;
+    if (index->value > max_index) {
+        return nullObject();
+    }
+
+    return array->elements[static_cast<std::size_t>(index->value)];
+}
+
+[[nodiscard]] auto eval_index_expression(
+    const std::shared_ptr<Object>& left,
+    const std::shared_ptr<Object>& index
+) -> std::shared_ptr<Object> {
+    const auto* array = dynamic_cast<const ArrayObject*>(left.get());
+    const auto* integer_index = dynamic_cast<const IntegerObject*>(index.get());
+
+    if (array != nullptr && integer_index != nullptr) {
+        return eval_array_index_expression(array, integer_index);
+    }
+
+    return new_error(
+        "index operator not supported: " + std::string(to_string(left->type()))
+    );
+}
+
 [[nodiscard]] auto apply_function(
     const std::shared_ptr<Object>& function,
     const std::vector<std::shared_ptr<Object>>& arguments
@@ -416,6 +448,20 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
         return apply_function(function, arguments);
     }
 
+    if (const auto* index_expression = dynamic_cast<const IndexExpression*>(node); index_expression != nullptr) {
+        const auto left = eval_node(index_expression->left.get(), environment);
+        if (is_error(left)) {
+            return left;
+        }
+
+        const auto index = eval_node(index_expression->index.get(), environment);
+        if (is_error(index)) {
+            return index;
+        }
+
+        return eval_index_expression(left, index);
+    }
+
     if (const auto* identifier = dynamic_cast<const Identifier*>(node); identifier != nullptr) {
         const auto value = environment.get(identifier->value);
         if (value != nullptr) {
@@ -444,6 +490,17 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
         auto string = std::make_shared<StringObject>();
         string->value = string_literal->value;
         return string;
+    }
+
+    if (const auto* array_literal = dynamic_cast<const ArrayLiteral*>(node); array_literal != nullptr) {
+        const auto elements = eval_expressions(array_literal->elements, environment);
+        if (elements.size() == 1 && is_error(elements[0])) {
+            return elements[0];
+        }
+
+        auto array = std::make_shared<ArrayObject>();
+        array->elements = elements;
+        return array;
     }
 
     if (const auto* if_expression = dynamic_cast<const IfExpression*>(node); if_expression != nullptr) {

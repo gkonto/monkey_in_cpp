@@ -16,7 +16,8 @@ public:
         Sum,
         Product,
         Prefix,
-        Call
+        Call,
+        Index
     };
 
     explicit Parser(Lexer lexer);
@@ -41,15 +42,18 @@ private:
     [[nodiscard]] auto parse_integer_literal() -> std::unique_ptr<IntegerLiteral>;
     [[nodiscard]] auto parse_boolean() -> std::unique_ptr<Boolean>;
     [[nodiscard]] auto parse_string_literal() -> std::unique_ptr<StringLiteral>;
+    [[nodiscard]] auto parse_array_literal() -> std::unique_ptr<ArrayLiteral>;
     [[nodiscard]] auto parse_prefix_expression() -> std::unique_ptr<PrefixExpression>;
     [[nodiscard]] auto parse_grouped_expression() -> std::unique_ptr<Expression>;
     [[nodiscard]] auto parse_if_expression() -> std::unique_ptr<IfExpression>;
     [[nodiscard]] auto parse_function_literal() -> std::unique_ptr<FunctionLiteral>;
     [[nodiscard]] auto parse_call_expression(std::unique_ptr<Expression> function) -> std::unique_ptr<Expression>;
+    [[nodiscard]] auto parse_index_expression(std::unique_ptr<Expression> left) -> std::unique_ptr<Expression>;
     [[nodiscard]] auto parse_infix_expression(std::unique_ptr<Expression> left) -> std::unique_ptr<Expression>;
     [[nodiscard]] auto parse_block_statement() -> std::unique_ptr<BlockStatement>;
     [[nodiscard]] auto parse_function_parameters() -> std::vector<std::unique_ptr<Identifier>>;
     [[nodiscard]] auto parse_call_arguments() -> std::vector<std::unique_ptr<Expression>>;
+    [[nodiscard]] auto parse_expression_list(TokenType end) -> std::vector<std::unique_ptr<Expression>>;
     [[nodiscard]] auto parse_let_statement() -> std::unique_ptr<LetStatement>;
     [[nodiscard]] auto parse_return_statement() -> std::unique_ptr<ReturnStatement>;
     [[nodiscard]] auto prefix_parse_fn() -> ParsePrefixFn;

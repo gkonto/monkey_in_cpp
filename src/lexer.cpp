@@ -48,6 +48,12 @@ auto Lexer::next_token() -> Token {
         case ')':
             read_char();
             return {TokenType::RightParen, ")"};
+        case '[':
+            read_char();
+            return {TokenType::LeftBracket, "["};
+        case ']':
+            read_char();
+            return {TokenType::RightBracket, "]"};
         case '{':
             read_char();
             return {TokenType::LeftBrace, "{"};

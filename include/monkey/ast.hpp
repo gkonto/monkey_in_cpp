@@ -74,6 +74,32 @@ struct StringLiteral : Expression {
     }
 };
 
+struct ArrayLiteral : Expression {
+    Token token;
+    std::vector<std::unique_ptr<Expression>> elements;
+
+    [[nodiscard]] auto token_literal() const -> std::string override {
+        return token.literal;
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        std::string out = "[";
+
+        for (std::size_t index = 0; index < elements.size(); ++index) {
+            if (index > 0) {
+                out += ", ";
+            }
+
+            if (elements[index] != nullptr) {
+                out += elements[index]->as_string();
+            }
+        }
+
+        out += "]";
+        return out;
+    }
+};
+
 struct PrefixExpression : Expression {
     Token token;
     std::string op;
@@ -242,6 +268,33 @@ struct CallExpression : Expression {
     }
 };
 
+struct IndexExpression : Expression {
+    Token token;
+    std::unique_ptr<Expression> left;
+    std::unique_ptr<Expression> index;
+
+    [[nodiscard]] auto token_literal() const -> std::string override {
+        return token.literal;
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        std::string out = "(";
+
+        if (left != nullptr) {
+            out += left->as_string();
+        }
+
+        out += "[";
+
+        if (index != nullptr) {
+            out += index->as_string();
+        }
+
+        out += "])";
+        return out;
+    }
+};
+
 struct ExpressionStatement : Statement {
     Token token;
     std::unique_ptr<Expression> expression;
@@ -369,6 +422,17 @@ struct ReturnStatement : Statement {
         return clone;
     }
 
+    if (const auto* array = dynamic_cast<const ArrayLiteral*>(&expression); array != nullptr) {
+        auto clone = std::make_unique<ArrayLiteral>();
+        clone->token = array->token;
+        for (const auto& element : array->elements) {
+            if (element != nullptr) {
+                clone->elements.push_back(clone_expression(*element));
+            }
+        }
+        return clone;
+    }
+
     if (const auto* prefix = dynamic_cast<const PrefixExpression*>(&expression); prefix != nullptr) {
         auto clone = std::make_unique<PrefixExpression>();
         clone->token = prefix->token;
@@ -434,6 +498,18 @@ struct ReturnStatement : Statement {
             if (argument != nullptr) {
                 clone->arguments.push_back(clone_expression(*argument));
             }
+        }
+        return clone;
+    }
+
+    if (const auto* index = dynamic_cast<const IndexExpression*>(&expression); index != nullptr) {
+        auto clone = std::make_unique<IndexExpression>();
+        clone->token = index->token;
+        if (index->left != nullptr) {
+            clone->left = clone_expression(*index->left);
+        }
+        if (index->index != nullptr) {
+            clone->index = clone_expression(*index->index);
         }
         return clone;
     }

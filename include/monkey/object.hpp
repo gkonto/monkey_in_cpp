@@ -14,6 +14,7 @@ enum class ObjectType {
     Integer,
     Boolean,
     String,
+    Array,
     Null,
     ReturnValue,
     Error,
@@ -29,6 +30,8 @@ enum class ObjectType {
             return "Boolean";
         case ObjectType::String:
             return "String";
+        case ObjectType::Array:
+            return "Array";
         case ObjectType::Null:
             return "Null";
         case ObjectType::ReturnValue:
@@ -84,6 +87,33 @@ struct StringObject : Object {
 
     [[nodiscard]] auto inspect() const -> std::string override {
         return value;
+    }
+};
+
+struct ArrayObject : Object {
+    std::vector<std::shared_ptr<Object>> elements;
+
+    [[nodiscard]] auto type() const -> ObjectType override {
+        return ObjectType::Array;
+    }
+
+    [[nodiscard]] auto inspect() const -> std::string override {
+        std::string out = "[";
+
+        for (std::size_t index = 0; index < elements.size(); ++index) {
+            if (index > 0) {
+                out += ", ";
+            }
+
+            if (elements[index] != nullptr) {
+                out += elements[index]->inspect();
+            } else {
+                out += "null";
+            }
+        }
+
+        out += "]";
+        return out;
     }
 };
 

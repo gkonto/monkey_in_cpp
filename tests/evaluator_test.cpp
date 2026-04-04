@@ -347,3 +347,55 @@ TEST_CASE("TestBuiltinFunctions", "[evaluator]") {
         }, test_case.expected);
     }
 }
+
+TEST_CASE("TestArrayLiterals", "[evaluator]") {
+    constexpr auto input = "[1, 2 * 2, 3 + 3]";
+
+    const auto evaluated = test_eval(input);
+    REQUIRE(evaluated != nullptr);
+
+    const auto* array = dynamic_cast<const ArrayObject*>(evaluated.get());
+    REQUIRE(array != nullptr);
+    REQUIRE(array->type() == ObjectType::Array);
+    REQUIRE(array->elements.size() == 3);
+
+    test_integer_object(array->elements[0].get(), 1);
+    test_integer_object(array->elements[1].get(), 4);
+    test_integer_object(array->elements[2].get(), 6);
+}
+
+TEST_CASE("TestArrayIndexExpressions", "[evaluator]") {
+    using Expected = std::variant<std::int64_t, std::monostate>;
+
+    struct TestCase {
+        std::string_view input;
+        Expected expected;
+    };
+
+    constexpr TestCase test_cases[] = {
+        {"[1, 2, 3][0]", std::int64_t {1}},
+        {"[1, 2, 3][1]", std::int64_t {2}},
+        {"[1, 2, 3][2]", std::int64_t {3}},
+        {"let i = 0; [1][i];", std::int64_t {1}},
+        {"[1, 2, 3][1+1];", std::int64_t {3}},
+        {"let myArray = [1, 2, 3]; myArray[2];", std::int64_t {3}},
+        {"let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];", std::int64_t {6}},
+        {"let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i];", std::int64_t {2}},
+        {"[1, 2, 3][3]", std::monostate {}},
+        {"[1, 2, 3][-1]", std::monostate {}},
+    };
+
+    for (const auto& test_case : test_cases) {
+        const auto evaluated = test_eval(test_case.input);
+
+        std::visit([&](const auto& expected) {
+            using ExpectedType = std::decay_t<decltype(expected)>;
+
+            if constexpr (std::is_same_v<ExpectedType, std::int64_t>) {
+                test_integer_object(evaluated.get(), expected);
+            } else {
+                test_null_object(evaluated.get());
+            }
+        }, test_case.expected);
+    }
+}

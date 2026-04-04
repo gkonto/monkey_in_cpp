@@ -40,6 +40,7 @@ TEST_CASE("TestNextToken extended input", "[lexer]") {
         "if (5 < 10) { return true; } else { return false; }\n"
         "10 == 10;\n"
         "10 != 9;\n"
+        "[1, 2]\n"
         "\"foobar\"\n"
         "\"foo bar\"";
 
@@ -117,6 +118,11 @@ TEST_CASE("TestNextToken extended input", "[lexer]") {
         {TokenType::NotEqual, "!="},
         {TokenType::Integer, "9"},
         {TokenType::Semicolon, ";"},
+        {TokenType::LeftBracket, "["},
+        {TokenType::Integer, "1"},
+        {TokenType::Comma, ","},
+        {TokenType::Integer, "2"},
+        {TokenType::RightBracket, "]"},
         {TokenType::String, "foobar"},
         {TokenType::String, "foo bar"},
         {TokenType::EndOfFile, ""},
