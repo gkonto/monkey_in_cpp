@@ -28,6 +28,7 @@ FetchContent_MakeAvailable(Catch2)
 enable_testing()
 
 add_library(monkey_lib
+    src/evaluator.cpp
     src/lexer.cpp
     src/parser.cpp
 )
@@ -60,6 +61,7 @@ target_link_libraries(monkey_repl
 
 add_executable(monkey_smoke_tests
     tests/ast_test.cpp
+    tests/evaluator_test.cpp
     tests/lexer_test.cpp
     tests/object_test.cpp
     tests/parser_test.cpp
