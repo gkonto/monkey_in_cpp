@@ -51,12 +51,72 @@ namespace {
     return nativeBoolToBooleanObject(false);
 }
 
+[[nodiscard]] auto eval_minus_prefix_operator_expression(const std::shared_ptr<Object>& right) -> std::shared_ptr<Object> {
+    const auto* integer = dynamic_cast<const IntegerObject*>(right.get());
+    if (integer == nullptr) {
+        return nullObject();
+    }
+
+    auto result = std::make_shared<IntegerObject>();
+    result->value = -integer->value;
+    return result;
+}
+
 [[nodiscard]] auto eval_prefix_expression(
     const std::string& op,
     const std::shared_ptr<Object>& right
 ) -> std::shared_ptr<Object> {
     if (op == "!") {
         return eval_bang_operator_expression(right);
+    }
+
+    if (op == "-") {
+        return eval_minus_prefix_operator_expression(right);
+    }
+
+    return nullObject();
+}
+
+[[nodiscard]] auto eval_integer_infix_expression(
+    const std::string& op,
+    const IntegerObject* left,
+    const IntegerObject* right
+) -> std::shared_ptr<Object> {
+    auto result = std::make_shared<IntegerObject>();
+
+    if (op == "+") {
+        result->value = left->value + right->value;
+        return result;
+    }
+
+    if (op == "-") {
+        result->value = left->value - right->value;
+        return result;
+    }
+
+    if (op == "*") {
+        result->value = left->value * right->value;
+        return result;
+    }
+
+    if (op == "/") {
+        result->value = left->value / right->value;
+        return result;
+    }
+
+    return nullObject();
+}
+
+[[nodiscard]] auto eval_infix_expression(
+    const std::string& op,
+    const std::shared_ptr<Object>& left,
+    const std::shared_ptr<Object>& right
+) -> std::shared_ptr<Object> {
+    const auto* left_integer = dynamic_cast<const IntegerObject*>(left.get());
+    const auto* right_integer = dynamic_cast<const IntegerObject*>(right.get());
+
+    if (left_integer != nullptr && right_integer != nullptr) {
+        return eval_integer_infix_expression(op, left_integer, right_integer);
     }
 
     return nullObject();
@@ -80,6 +140,12 @@ auto eval(const Node* node) -> std::shared_ptr<Object> {
     if (const auto* prefix_expression = dynamic_cast<const PrefixExpression*>(node); prefix_expression != nullptr) {
         const auto right = eval(prefix_expression->right.get());
         return eval_prefix_expression(prefix_expression->op, right);
+    }
+
+    if (const auto* infix_expression = dynamic_cast<const InfixExpression*>(node); infix_expression != nullptr) {
+        const auto left = eval(infix_expression->left.get());
+        const auto right = eval(infix_expression->right.get());
+        return eval_infix_expression(infix_expression->op, left, right);
     }
 
     if (const auto* integer_literal = dynamic_cast<const IntegerLiteral*>(node); integer_literal != nullptr) {
