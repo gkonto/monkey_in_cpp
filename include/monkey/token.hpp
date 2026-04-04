@@ -9,6 +9,7 @@ enum class TokenType {
 
     Identifier,
     Integer,
+    String,
     
     Assign,
     Bang,
@@ -85,6 +86,8 @@ struct Token {
             return "Identifier";
         case TokenType::Integer:
             return "Integer";
+        case TokenType::String:
+            return "String";
         case TokenType::Assign:
             return "Assign";
         case TokenType::Bang:

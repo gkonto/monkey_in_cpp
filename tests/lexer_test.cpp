@@ -39,7 +39,9 @@ TEST_CASE("TestNextToken extended input", "[lexer]") {
         "5 < 10 > 5;\n"
         "if (5 < 10) { return true; } else { return false; }\n"
         "10 == 10;\n"
-        "10 != 9;";
+        "10 != 9;\n"
+        "\"foobar\"\n"
+        "\"foo bar\"";
 
     const Token expected_tokens[] = {
         {TokenType::Let, "let"},
@@ -115,6 +117,8 @@ TEST_CASE("TestNextToken extended input", "[lexer]") {
         {TokenType::NotEqual, "!="},
         {TokenType::Integer, "9"},
         {TokenType::Semicolon, ";"},
+        {TokenType::String, "foobar"},
+        {TokenType::String, "foo bar"},
         {TokenType::EndOfFile, ""},
     };
 

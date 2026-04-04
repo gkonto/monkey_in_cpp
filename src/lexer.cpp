@@ -60,6 +60,11 @@ auto Lexer::next_token() -> Token {
         case ';':
             read_char();
             return {TokenType::Semicolon, ";"};
+        case '"': {
+            const auto literal = read_string();
+            read_char();
+            return {TokenType::String, literal};
+        }
         case 0:
             return {TokenType::EndOfFile, ""};
     }
@@ -94,6 +99,16 @@ auto Lexer::read_number() -> std::string {
     while (is_digit(ch_)) {
         read_char();
     }
+
+    return std::string(input_.substr(start, position_ - start));
+}
+
+auto Lexer::read_string() -> std::string {
+    const auto start = position_ + 1;
+
+    do {
+        read_char();
+    } while (ch_ != '"' && ch_ != 0);
 
     return std::string(input_.substr(start, position_ - start));
 }
