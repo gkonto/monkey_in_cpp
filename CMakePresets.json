@@ -23,6 +23,27 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "release-lto",
+      "displayName": "Release with LTO",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/build/release-lto",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "MONKEY_ENABLE_LTO": "ON"
+      }
+    },
+    {
+      "name": "release-native-lto",
+      "displayName": "Release with Native CPU Tuning and LTO",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/build/release-native-lto",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "MONKEY_ENABLE_LTO": "ON",
+        "MONKEY_ENABLE_NATIVE_ARCH": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -33,6 +54,14 @@
     {
       "name": "release",
       "configurePreset": "release"
+    },
+    {
+      "name": "release-lto",
+      "configurePreset": "release-lto"
+    },
+    {
+      "name": "release-native-lto",
+      "configurePreset": "release-native-lto"
     }
   ],
   "testPresets": [
@@ -46,6 +75,20 @@
     {
       "name": "release",
       "configurePreset": "release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "release-lto",
+      "configurePreset": "release-lto",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "release-native-lto",
+      "configurePreset": "release-native-lto",
       "output": {
         "outputOnFailure": true
       }
