@@ -41,6 +41,7 @@ private:
     [[nodiscard]] auto parse_integer_literal() -> std::unique_ptr<IntegerLiteral>;
     [[nodiscard]] auto parse_boolean() -> std::unique_ptr<Boolean>;
     [[nodiscard]] auto parse_prefix_expression() -> std::unique_ptr<PrefixExpression>;
+    [[nodiscard]] auto parse_grouped_expression() -> std::unique_ptr<Expression>;
     [[nodiscard]] auto parse_infix_expression(std::unique_ptr<Expression> left) -> std::unique_ptr<Expression>;
     [[nodiscard]] auto parse_let_statement() -> std::unique_ptr<LetStatement>;
     [[nodiscard]] auto parse_return_statement() -> std::unique_ptr<ReturnStatement>;

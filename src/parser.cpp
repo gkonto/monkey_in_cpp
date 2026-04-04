@@ -141,6 +141,18 @@ auto Parser::parse_prefix_expression() -> std::unique_ptr<PrefixExpression> {
     return expression;
 }
 
+auto Parser::parse_grouped_expression() -> std::unique_ptr<Expression> {
+    next_token();
+
+    auto expression = parse_expression(Precedence::Lowest);
+
+    if (!expect_peek(TokenType::RightParen)) {
+        return nullptr;
+    }
+
+    return expression;
+}
+
 auto Parser::parse_infix_expression(std::unique_ptr<Expression> left) -> std::unique_ptr<Expression> {
     auto expression = std::make_unique<InfixExpression>();
     expression->token = current_token_;
@@ -209,6 +221,12 @@ auto Parser::prefix_parse_fn() -> ParsePrefixFn {
     if (current_token_is(TokenType::Bang) || current_token_is(TokenType::Minus)) {
         return [this]() {
             return parse_prefix_expression();
+        };
+    }
+
+    if (current_token_is(TokenType::LeftParen)) {
+        return [this]() {
+            return parse_grouped_expression();
         };
     }
 
