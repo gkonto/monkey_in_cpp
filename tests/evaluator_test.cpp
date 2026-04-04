@@ -46,6 +46,22 @@ void test_string_object(const Object* object, std::string_view expected_value) {
     REQUIRE(string->type() == ObjectType::String);
 }
 
+void test_integer_array_object(
+    const Object* object,
+    const std::vector<std::int64_t>& expected_elements
+) {
+    REQUIRE(object != nullptr);
+
+    const auto* array = dynamic_cast<const ArrayObject*>(object);
+    REQUIRE(array != nullptr);
+    REQUIRE(array->type() == ObjectType::Array);
+    REQUIRE(array->elements.size() == expected_elements.size());
+
+    for (std::size_t index = 0; index < expected_elements.size(); ++index) {
+        test_integer_object(array->elements[index].get(), expected_elements[index]);
+    }
+}
+
 void test_null_object(const Object* object) {
     REQUIRE(object != nullptr);
 
@@ -72,7 +88,7 @@ TEST_CASE("TestEvalIntegerExpression", "[evaluator]") {
         std::int64_t expected;
     };
 
-    constexpr TestCase test_cases[] = {
+    const TestCase test_cases[] = {
         {"5", 5},
         {"10", 10},
         {"-5", -5},
@@ -102,7 +118,7 @@ TEST_CASE("TestEvalBooleanExpression", "[evaluator]") {
         bool expected;
     };
 
-    constexpr TestCase test_cases[] = {
+    const TestCase test_cases[] = {
         {"true", true},
         {"false", false},
         {"1 < 2", true},
@@ -140,7 +156,7 @@ TEST_CASE("TestBangOperator", "[evaluator]") {
         bool expected;
     };
 
-    constexpr TestCase test_cases[] = {
+    const TestCase test_cases[] = {
         {"!true", false},
         {"!false", true},
         {"!5", false},
@@ -315,21 +331,43 @@ TEST_CASE("TestStringConcatenation", "[evaluator]") {
 }
 
 TEST_CASE("TestBuiltinFunctions", "[evaluator]") {
-    using Expected = std::variant<std::int64_t, std::string_view>;
+    using Expected = std::variant<
+        std::int64_t,
+        std::string_view,
+        std::monostate,
+        std::vector<std::int64_t>
+    >;
 
     struct TestCase {
         std::string_view input;
         Expected expected;
     };
 
-    constexpr TestCase test_cases[] = {
+    const TestCase test_cases[] = {
         {"len(\"\")", std::int64_t {0}},
         {"len(\"four\")", std::int64_t {4}},
         {"len(\"hello world\")", std::int64_t {11}},
+        {"len([1, 2, 3])", std::int64_t {3}},
         {"len(1)", std::string_view {"argument to `len` not supported, got Integer"}},
         {
             "len(\"one\", \"two\")",
             std::string_view {"wrong number of arguments. got=2, want=1"},
+        },
+        {"first([1, 2, 3])", std::int64_t {1}},
+        {"first([])", std::monostate {}},
+        {"first(1)", std::string_view {"argument to `first` must be Array, got Integer"}},
+        {"last([1, 2, 3])", std::int64_t {3}},
+        {"last([])", std::monostate {}},
+        {"last(1)", std::string_view {"argument to `last` must be Array, got Integer"}},
+        {"rest([1, 2, 3])", std::vector<std::int64_t> {2, 3}},
+        {"rest([])", std::monostate {}},
+        {"rest(1)", std::string_view {"argument to `rest` must be Array, got Integer"}},
+        {"push([], 1)", std::vector<std::int64_t> {1}},
+        {"push([1, 2], 3)", std::vector<std::int64_t> {1, 2, 3}},
+        {"push(1, 1)", std::string_view {"argument to `push` must be Array, got Integer"}},
+        {
+            "push([1])",
+            std::string_view {"wrong number of arguments. got=1, want=2"},
         },
     };
 
@@ -341,6 +379,10 @@ TEST_CASE("TestBuiltinFunctions", "[evaluator]") {
 
             if constexpr (std::is_same_v<ExpectedType, std::int64_t>) {
                 test_integer_object(evaluated.get(), expected);
+            } else if constexpr (std::is_same_v<ExpectedType, std::monostate>) {
+                test_null_object(evaluated.get());
+            } else if constexpr (std::is_same_v<ExpectedType, std::vector<std::int64_t>>) {
+                test_integer_array_object(evaluated.get(), expected);
             } else {
                 test_error_object(evaluated.get(), expected);
             }

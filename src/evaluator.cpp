@@ -35,6 +35,12 @@ namespace {
     return error;
 }
 
+[[nodiscard]] auto new_integer_object(std::int64_t value) -> std::shared_ptr<Object> {
+    auto result = std::make_shared<IntegerObject>();
+    result->value = value;
+    return result;
+}
+
 [[nodiscard]] auto builtin_len(const std::vector<std::shared_ptr<Object>>& arguments)
     -> std::shared_ptr<Object> {
     if (arguments.size() != 1) {
@@ -43,16 +49,110 @@ namespace {
         );
     }
 
-    const auto* string = dynamic_cast<const StringObject*>(arguments[0].get());
-    if (string == nullptr) {
+    if (const auto* string = dynamic_cast<const StringObject*>(arguments[0].get()); string != nullptr) {
+        return new_integer_object(static_cast<std::int64_t>(string->value.size()));
+    }
+
+    if (const auto* array = dynamic_cast<const ArrayObject*>(arguments[0].get()); array != nullptr) {
+        return new_integer_object(static_cast<std::int64_t>(array->elements.size()));
+    }
+
+    return new_error(
+        "argument to `len` not supported, got " +
+        std::string(to_string(arguments[0]->type()))
+    );
+}
+
+[[nodiscard]] auto builtin_first(const std::vector<std::shared_ptr<Object>>& arguments)
+    -> std::shared_ptr<Object> {
+    if (arguments.size() != 1) {
         return new_error(
-            "argument to `len` not supported, got " +
+            "wrong number of arguments. got=" + std::to_string(arguments.size()) + ", want=1"
+        );
+    }
+
+    const auto* array = dynamic_cast<const ArrayObject*>(arguments[0].get());
+    if (array == nullptr) {
+        return new_error(
+            "argument to `first` must be Array, got " +
             std::string(to_string(arguments[0]->type()))
         );
     }
 
-    auto result = std::make_shared<IntegerObject>();
-    result->value = static_cast<std::int64_t>(string->value.size());
+    if (array->elements.empty()) {
+        return nullObject();
+    }
+
+    return array->elements.front();
+}
+
+[[nodiscard]] auto builtin_last(const std::vector<std::shared_ptr<Object>>& arguments)
+    -> std::shared_ptr<Object> {
+    if (arguments.size() != 1) {
+        return new_error(
+            "wrong number of arguments. got=" + std::to_string(arguments.size()) + ", want=1"
+        );
+    }
+
+    const auto* array = dynamic_cast<const ArrayObject*>(arguments[0].get());
+    if (array == nullptr) {
+        return new_error(
+            "argument to `last` must be Array, got " +
+            std::string(to_string(arguments[0]->type()))
+        );
+    }
+
+    if (array->elements.empty()) {
+        return nullObject();
+    }
+
+    return array->elements.back();
+}
+
+[[nodiscard]] auto builtin_rest(const std::vector<std::shared_ptr<Object>>& arguments)
+    -> std::shared_ptr<Object> {
+    if (arguments.size() != 1) {
+        return new_error(
+            "wrong number of arguments. got=" + std::to_string(arguments.size()) + ", want=1"
+        );
+    }
+
+    const auto* array = dynamic_cast<const ArrayObject*>(arguments[0].get());
+    if (array == nullptr) {
+        return new_error(
+            "argument to `rest` must be Array, got " +
+            std::string(to_string(arguments[0]->type()))
+        );
+    }
+
+    if (array->elements.empty()) {
+        return nullObject();
+    }
+
+    auto result = std::make_shared<ArrayObject>();
+    result->elements.assign(array->elements.begin() + 1, array->elements.end());
+    return result;
+}
+
+[[nodiscard]] auto builtin_push(const std::vector<std::shared_ptr<Object>>& arguments)
+    -> std::shared_ptr<Object> {
+    if (arguments.size() != 2) {
+        return new_error(
+            "wrong number of arguments. got=" + std::to_string(arguments.size()) + ", want=2"
+        );
+    }
+
+    const auto* array = dynamic_cast<const ArrayObject*>(arguments[0].get());
+    if (array == nullptr) {
+        return new_error(
+            "argument to `push` must be Array, got " +
+            std::string(to_string(arguments[0]->type()))
+        );
+    }
+
+    auto result = std::make_shared<ArrayObject>();
+    result->elements = array->elements;
+    result->elements.push_back(arguments[1]);
     return result;
 }
 
@@ -61,6 +161,46 @@ namespace {
         static auto builtin = [] {
             auto object = std::make_shared<BuiltinObject>();
             object->function = builtin_len;
+            return object;
+        }();
+
+        return builtin;
+    }
+
+    if (name == "first") {
+        static auto builtin = [] {
+            auto object = std::make_shared<BuiltinObject>();
+            object->function = builtin_first;
+            return object;
+        }();
+
+        return builtin;
+    }
+
+    if (name == "last") {
+        static auto builtin = [] {
+            auto object = std::make_shared<BuiltinObject>();
+            object->function = builtin_last;
+            return object;
+        }();
+
+        return builtin;
+    }
+
+    if (name == "rest") {
+        static auto builtin = [] {
+            auto object = std::make_shared<BuiltinObject>();
+            object->function = builtin_rest;
+            return object;
+        }();
+
+        return builtin;
+    }
+
+    if (name == "push") {
+        static auto builtin = [] {
+            auto object = std::make_shared<BuiltinObject>();
+            object->function = builtin_push;
             return object;
         }();
 
