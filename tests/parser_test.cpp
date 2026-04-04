@@ -151,15 +151,19 @@ TEST_CASE("TestIntegerLiteralExpression", "[parser]") {
 }
 
 TEST_CASE("TestParsingPrefix", "[parser]") {
+    using Literal = std::variant<std::int64_t, bool>;
+
     struct TestCase {
         std::string_view input;
         std::string_view op;
-        std::int64_t integer_value;
+        Literal value;
     };
 
     constexpr TestCase test_cases[] = {
-        {"!5;", "!", 5},
-        {"-15;", "-", 15},
+        {"!5;", "!", std::int64_t {5}},
+        {"-15;", "-", std::int64_t {15}},
+        {"!true;", "!", true},
+        {"!false;", "!", false},
     };
 
     for (const auto& test_case : test_cases) {
@@ -179,7 +183,7 @@ TEST_CASE("TestParsingPrefix", "[parser]") {
         REQUIRE(prefix_expression->op == test_case.op);
         REQUIRE(prefix_expression->right != nullptr);
 
-        test_literal_expression(prefix_expression->right.get(), test_case.integer_value);
+        test_literal_expression(prefix_expression->right.get(), test_case.value);
     }
 }
 
