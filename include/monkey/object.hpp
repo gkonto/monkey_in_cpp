@@ -1,0 +1,64 @@
+#pragma once
+
+#include <cstdint>
+#include <string>
+
+enum class ObjectType {
+    Integer,
+    Boolean,
+    Null,
+};
+
+[[nodiscard]] inline auto to_string(ObjectType type) -> std::string {
+    switch (type) {
+        case ObjectType::Integer:
+            return "Integer";
+        case ObjectType::Boolean:
+            return "Boolean";
+        case ObjectType::Null:
+            return "Null";
+    }
+
+    return "Unknown";
+}
+
+struct Object {
+    virtual ~Object() = default;
+
+    [[nodiscard]] virtual auto type() const -> ObjectType = 0;
+    [[nodiscard]] virtual auto inspect() const -> std::string = 0;
+};
+
+struct IntegerObject : Object {
+    std::int64_t value {0};
+
+    [[nodiscard]] auto type() const -> ObjectType override {
+        return ObjectType::Integer;
+    }
+
+    [[nodiscard]] auto inspect() const -> std::string override {
+        return std::to_string(value);
+    }
+};
+
+struct BooleanObject : Object {
+    bool value {false};
+
+    [[nodiscard]] auto type() const -> ObjectType override {
+        return ObjectType::Boolean;
+    }
+
+    [[nodiscard]] auto inspect() const -> std::string override {
+        return value ? "true" : "false";
+    }
+};
+
+struct NullObject : Object {
+    [[nodiscard]] auto type() const -> ObjectType override {
+        return ObjectType::Null;
+    }
+
+    [[nodiscard]] auto inspect() const -> std::string override {
+        return "null";
+    }
+};

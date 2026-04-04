@@ -1,0 +1,29 @@
+#include <catch2/catch_test_macros.hpp>
+
+#include "monkey/object.hpp"
+
+TEST_CASE("IntegerObject exposes Integer type and inspect value", "[object]") {
+    IntegerObject object {};
+    object.value = 42;
+
+    REQUIRE(object.type() == ObjectType::Integer);
+    REQUIRE(to_string(object.type()) == "Integer");
+    REQUIRE(object.inspect() == "42");
+}
+
+TEST_CASE("BooleanObject exposes Boolean type and inspect value", "[object]") {
+    BooleanObject object {};
+    object.value = true;
+
+    REQUIRE(object.type() == ObjectType::Boolean);
+    REQUIRE(to_string(object.type()) == "Boolean");
+    REQUIRE(object.inspect() == "true");
+}
+
+TEST_CASE("NullObject exposes Null type and inspect value", "[object]") {
+    NullObject object {};
+
+    REQUIRE(object.type() == ObjectType::Null);
+    REQUIRE(to_string(object.type()) == "Null");
+    REQUIRE(object.inspect() == "null");
+}

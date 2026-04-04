@@ -61,6 +61,7 @@ target_link_libraries(monkey_repl
 add_executable(monkey_smoke_tests
     tests/ast_test.cpp
     tests/lexer_test.cpp
+    tests/object_test.cpp
     tests/parser_test.cpp
 )
 
