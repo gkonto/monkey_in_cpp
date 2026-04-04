@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "monkey/evaluator.hpp"
 #include "monkey/lexer.hpp"
 #include "monkey/parser.hpp"
 
@@ -37,6 +38,9 @@ void start_repl(std::istream& input, std::ostream& output) {
             continue;
         }
 
-        output << program.as_string() << '\n';
+        const auto evaluated = eval(&program);
+        if (evaluated != nullptr) {
+            output << evaluated->inspect() << '\n';
+        }
     }
 }
