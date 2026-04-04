@@ -163,6 +163,39 @@ struct IfExpression : Expression {
     }
 };
 
+struct FunctionLiteral : Expression {
+    Token token;
+    std::vector<std::unique_ptr<Identifier>> parameters;
+    std::unique_ptr<BlockStatement> body;
+
+    [[nodiscard]] auto token_literal() const -> std::string override {
+        return token.literal;
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        std::string out = token_literal();
+        out += "(";
+
+        for (std::size_t index = 0; index < parameters.size(); ++index) {
+            if (index > 0) {
+                out += ", ";
+            }
+
+            if (parameters[index] != nullptr) {
+                out += parameters[index]->as_string();
+            }
+        }
+
+        out += ")";
+
+        if (body != nullptr) {
+            out += body->as_string();
+        }
+
+        return out;
+    }
+};
+
 struct ExpressionStatement : Statement {
     Token token;
     std::unique_ptr<Expression> expression;

@@ -187,6 +187,24 @@ auto Parser::parse_if_expression() -> std::unique_ptr<IfExpression> {
     return expression;
 }
 
+auto Parser::parse_function_literal() -> std::unique_ptr<FunctionLiteral> {
+    auto literal = std::make_unique<FunctionLiteral>();
+    literal->token = current_token_;
+
+    if (!expect_peek(TokenType::LeftParen)) {
+        return nullptr;
+    }
+
+    literal->parameters = parse_function_parameters();
+
+    if (!expect_peek(TokenType::LeftBrace)) {
+        return nullptr;
+    }
+
+    literal->body = parse_block_statement();
+    return literal;
+}
+
 auto Parser::parse_infix_expression(std::unique_ptr<Expression> left) -> std::unique_ptr<Expression> {
     auto expression = std::make_unique<InfixExpression>();
     expression->token = current_token_;
@@ -214,6 +232,38 @@ auto Parser::parse_block_statement() -> std::unique_ptr<BlockStatement> {
     }
 
     return block;
+}
+
+auto Parser::parse_function_parameters() -> std::vector<std::unique_ptr<Identifier>> {
+    std::vector<std::unique_ptr<Identifier>> identifiers;
+
+    if (peek_token_is(TokenType::RightParen)) {
+        next_token();
+        return identifiers;
+    }
+
+    next_token();
+
+    auto identifier = std::make_unique<Identifier>();
+    identifier->token = current_token_;
+    identifier->value = current_token_.literal;
+    identifiers.push_back(std::move(identifier));
+
+    while (peek_token_is(TokenType::Comma)) {
+        next_token();
+        next_token();
+
+        auto next_identifier = std::make_unique<Identifier>();
+        next_identifier->token = current_token_;
+        next_identifier->value = current_token_.literal;
+        identifiers.push_back(std::move(next_identifier));
+    }
+
+    if (!expect_peek(TokenType::RightParen)) {
+        return {};
+    }
+
+    return identifiers;
 }
 
 auto Parser::parse_let_statement() -> std::unique_ptr<LetStatement> {
@@ -278,6 +328,12 @@ auto Parser::prefix_parse_fn() -> ParsePrefixFn {
     if (current_token_is(TokenType::If)) {
         return [this]() {
             return parse_if_expression();
+        };
+    }
+
+    if (current_token_is(TokenType::Function)) {
+        return [this]() {
+            return parse_function_literal();
         };
     }
 

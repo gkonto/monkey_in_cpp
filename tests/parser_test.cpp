@@ -311,3 +311,72 @@ TEST_CASE("TestIfExpression", "[parser]") {
 
     REQUIRE(if_expression->alternative == nullptr);
 }
+
+TEST_CASE("TestFunctionLiteral", "[parser]") {
+    constexpr auto input = "fn(x, y) { x + y; }";
+
+    auto lexer = Lexer {input};
+    auto parser = Parser {lexer};
+    const auto program = parser.parse_program();
+
+    check_parser_errors(parser);
+    REQUIRE(program.statements.size() == 1);
+
+    const auto* statement = dynamic_cast<const ExpressionStatement*>(program.statements[0].get());
+    REQUIRE(statement != nullptr);
+    REQUIRE(statement->expression != nullptr);
+
+    const auto* function = dynamic_cast<const FunctionLiteral*>(statement->expression.get());
+    REQUIRE(function != nullptr);
+    REQUIRE(function->parameters.size() == 2);
+    test_literal_expression(function->parameters[0].get(), std::string_view {"x"});
+    test_literal_expression(function->parameters[1].get(), std::string_view {"y"});
+
+    REQUIRE(function->body != nullptr);
+    REQUIRE(function->body->statements.size() == 1);
+
+    const auto* body_statement =
+        dynamic_cast<const ExpressionStatement*>(function->body->statements[0].get());
+    REQUIRE(body_statement != nullptr);
+    REQUIRE(body_statement->expression != nullptr);
+
+    const auto* body_expression = dynamic_cast<const InfixExpression*>(body_statement->expression.get());
+    REQUIRE(body_expression != nullptr);
+    REQUIRE(body_expression->op == "+");
+    test_literal_expression(body_expression->left.get(), std::string_view {"x"});
+    test_literal_expression(body_expression->right.get(), std::string_view {"y"});
+}
+
+TEST_CASE("TestFunctionParameterParsing", "[parser]") {
+    struct TestCase {
+        std::string_view input;
+        std::vector<std::string_view> expected_parameters;
+    };
+
+    const TestCase test_cases[] = {
+        {"fn() {};", {}},
+        {"fn(x) {};", {"x"}},
+        {"fn(x, y, z) {};", {"x", "y", "z"}},
+    };
+
+    for (const auto& test_case : test_cases) {
+        auto lexer = Lexer {test_case.input};
+        auto parser = Parser {lexer};
+        const auto program = parser.parse_program();
+
+        check_parser_errors(parser);
+        REQUIRE(program.statements.size() == 1);
+
+        const auto* statement = dynamic_cast<const ExpressionStatement*>(program.statements[0].get());
+        REQUIRE(statement != nullptr);
+        REQUIRE(statement->expression != nullptr);
+
+        const auto* function = dynamic_cast<const FunctionLiteral*>(statement->expression.get());
+        REQUIRE(function != nullptr);
+        REQUIRE(function->parameters.size() == test_case.expected_parameters.size());
+
+        for (std::size_t index = 0; index < test_case.expected_parameters.size(); ++index) {
+            test_literal_expression(function->parameters[index].get(), test_case.expected_parameters[index]);
+        }
+    }
+}
