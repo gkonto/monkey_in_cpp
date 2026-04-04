@@ -82,26 +82,44 @@ namespace {
     const IntegerObject* left,
     const IntegerObject* right
 ) -> std::shared_ptr<Object> {
-    auto result = std::make_shared<IntegerObject>();
-
     if (op == "+") {
+        auto result = std::make_shared<IntegerObject>();
         result->value = left->value + right->value;
         return result;
     }
 
     if (op == "-") {
+        auto result = std::make_shared<IntegerObject>();
         result->value = left->value - right->value;
         return result;
     }
 
     if (op == "*") {
+        auto result = std::make_shared<IntegerObject>();
         result->value = left->value * right->value;
         return result;
     }
 
     if (op == "/") {
+        auto result = std::make_shared<IntegerObject>();
         result->value = left->value / right->value;
         return result;
+    }
+
+    if (op == "<") {
+        return nativeBoolToBooleanObject(left->value < right->value);
+    }
+
+    if (op == ">") {
+        return nativeBoolToBooleanObject(left->value > right->value);
+    }
+
+    if (op == "==") {
+        return nativeBoolToBooleanObject(left->value == right->value);
+    }
+
+    if (op == "!=") {
+        return nativeBoolToBooleanObject(left->value != right->value);
     }
 
     return nullObject();
@@ -117,6 +135,14 @@ namespace {
 
     if (left_integer != nullptr && right_integer != nullptr) {
         return eval_integer_infix_expression(op, left_integer, right_integer);
+    }
+
+    if (op == "==") {
+        return nativeBoolToBooleanObject(left == right);
+    }
+
+    if (op == "!=") {
+        return nativeBoolToBooleanObject(left != right);
     }
 
     return nullObject();
