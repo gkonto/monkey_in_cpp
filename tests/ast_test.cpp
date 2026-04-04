@@ -61,3 +61,12 @@ TEST_CASE("Program as_string concatenates statement strings", "[ast]") {
 
     REQUIRE(program.as_string() == "let myVar = anotherVar;");
 }
+
+TEST_CASE("Boolean token_literal and as_string use the token literal", "[ast]") {
+    Boolean boolean;
+    boolean.token = Token {TokenType::True, "true"};
+    boolean.value = true;
+
+    REQUIRE(boolean.token_literal() == "true");
+    REQUIRE(boolean.as_string() == "true");
+}

@@ -48,6 +48,19 @@ struct IntegerLiteral : Expression {
     }
 };
 
+struct Boolean : Expression {
+    Token token;
+    bool value {false};
+
+    [[nodiscard]] auto token_literal() const -> std::string override {
+        return token.literal;
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        return token.literal;
+    }
+};
+
 struct PrefixExpression : Expression {
     Token token;
     std::string op;

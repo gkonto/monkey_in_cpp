@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <string_view>
+#include <variant>
 
 #include "monkey/ast.hpp"
 #include "monkey/lexer.hpp"
@@ -31,12 +32,48 @@ void test_return_statement(const Statement* statement) {
     REQUIRE(return_statement->token_literal() == "return");
 }
 
+void test_identifier(const Expression* expression, std::string_view expected_value) {
+    REQUIRE(expression != nullptr);
+
+    const auto* identifier = dynamic_cast<const Identifier*>(expression);
+    REQUIRE(identifier != nullptr);
+    REQUIRE(identifier->value == expected_value);
+    REQUIRE(identifier->token_literal() == expected_value);
+}
+
 void test_integer_literal(const Expression* expression, std::int64_t expected_value) {
     REQUIRE(expression != nullptr);
 
     const auto* integer_literal = dynamic_cast<const IntegerLiteral*>(expression);
     REQUIRE(integer_literal != nullptr);
     REQUIRE(integer_literal->value == expected_value);
+    REQUIRE(integer_literal->token_literal() == std::to_string(expected_value));
+}
+
+void test_boolean_literal(const Expression* expression, bool expected_value) {
+    REQUIRE(expression != nullptr);
+
+    const auto* boolean = dynamic_cast<const Boolean*>(expression);
+    REQUIRE(boolean != nullptr);
+    REQUIRE(boolean->value == expected_value);
+    REQUIRE(boolean->token_literal() == (expected_value ? "true" : "false"));
+}
+
+template <typename T>
+void test_literal_expression(const Expression* expression, const T& expected_value) {
+    using ValueType = std::decay_t<T>;
+
+    if constexpr (std::is_same_v<ValueType, std::string_view>) {
+        test_identifier(expression, expected_value);
+    } else if constexpr (std::is_same_v<ValueType, std::int64_t>) {
+        test_integer_literal(expression, expected_value);
+    } else if constexpr (std::is_same_v<ValueType, bool>) {
+        test_boolean_literal(expression, expected_value);
+    } else if constexpr (requires { std::visit([](const auto&) {}, expected_value); }) {
+        std::visit([&](const auto& value) {
+            test_literal_expression(expression, value);
+        }, expected_value);
+    }
 }
 
 }  // namespace
@@ -93,10 +130,7 @@ TEST_CASE("TestIdentifierExpression", "[parser]") {
     REQUIRE(statement != nullptr);
     REQUIRE(statement->expression != nullptr);
 
-    const auto* identifier = dynamic_cast<const Identifier*>(statement->expression.get());
-    REQUIRE(identifier != nullptr);
-    REQUIRE(identifier->value == "foobar");
-    REQUIRE(identifier->token_literal() == "foobar");
+    test_literal_expression(statement->expression.get(), std::string_view {"foobar"});
 }
 
 TEST_CASE("TestIntegerLiteralExpression", "[parser]") {
@@ -113,10 +147,7 @@ TEST_CASE("TestIntegerLiteralExpression", "[parser]") {
     REQUIRE(statement != nullptr);
     REQUIRE(statement->expression != nullptr);
 
-    const auto* integer_literal = dynamic_cast<const IntegerLiteral*>(statement->expression.get());
-    REQUIRE(integer_literal != nullptr);
-    REQUIRE(integer_literal->value == 5);
-    REQUIRE(integer_literal->token_literal() == "5");
+    test_literal_expression(statement->expression.get(), std::int64_t {5});
 }
 
 TEST_CASE("TestParsingPrefix", "[parser]") {
@@ -148,27 +179,32 @@ TEST_CASE("TestParsingPrefix", "[parser]") {
         REQUIRE(prefix_expression->op == test_case.op);
         REQUIRE(prefix_expression->right != nullptr);
 
-        test_integer_literal(prefix_expression->right.get(), test_case.integer_value);
+        test_literal_expression(prefix_expression->right.get(), test_case.integer_value);
     }
 }
 
 TEST_CASE("TestParsingInfixExpressions", "[parser]") {
+    using Literal = std::variant<std::int64_t, bool>;
+
     struct TestCase {
         std::string_view input;
-        std::int64_t left_value;
+        Literal left_value;
         std::string_view op;
-        std::int64_t right_value;
+        Literal right_value;
     };
 
     constexpr TestCase test_cases[] = {
-        {"5 + 5;", 5, "+", 5},
-        {"5 - 5;", 5, "-", 5},
-        {"5 * 5;", 5, "*", 5},
-        {"5 / 5;", 5, "/", 5},
-        {"5 > 5;", 5, ">", 5},
-        {"5 < 5;", 5, "<", 5},
-        {"5 == 5;", 5, "==", 5},
-        {"5 != 5;", 5, "!=", 5},
+        {"5 + 5;", std::int64_t {5}, "+", std::int64_t {5}},
+        {"5 - 5;", std::int64_t {5}, "-", std::int64_t {5}},
+        {"5 * 5;", std::int64_t {5}, "*", std::int64_t {5}},
+        {"5 / 5;", std::int64_t {5}, "/", std::int64_t {5}},
+        {"5 > 5;", std::int64_t {5}, ">", std::int64_t {5}},
+        {"5 < 5;", std::int64_t {5}, "<", std::int64_t {5}},
+        {"5 == 5;", std::int64_t {5}, "==", std::int64_t {5}},
+        {"5 != 5;", std::int64_t {5}, "!=", std::int64_t {5}},
+        {"true == true", true, "==", true},
+        {"true != false", true, "!=", false},
+        {"false == false", false, "==", false},
     };
 
     for (const auto& test_case : test_cases) {
@@ -189,8 +225,8 @@ TEST_CASE("TestParsingInfixExpressions", "[parser]") {
         REQUIRE(infix_expression->op == test_case.op);
         REQUIRE(infix_expression->right != nullptr);
 
-        test_integer_literal(infix_expression->left.get(), test_case.left_value);
-        test_integer_literal(infix_expression->right.get(), test_case.right_value);
+        test_literal_expression(infix_expression->left.get(), test_case.left_value);
+        test_literal_expression(infix_expression->right.get(), test_case.right_value);
     }
 }
 
@@ -213,6 +249,10 @@ TEST_CASE("TestOperatorPrecedenceParsing", "[parser]") {
         {"5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))"},
         {"5 < 4 != 3 > 4", "((5 < 4) != (3 > 4))"},
         {"3 + 4 * 5 == 3 * 1 + 4 * 5", "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))"},
+        {"true", "true"},
+        {"false", "false"},
+        {"3 > 5 == false", "((3 > 5) == false)"},
+        {"3 < 5 == true", "((3 < 5) == true)"},
     };
 
     for (const auto& test_case : test_cases) {
