@@ -30,6 +30,10 @@ namespace {
 
     for (const auto& statement : program->statements) {
         result = eval(statement.get());
+
+        if (const auto* return_value = dynamic_cast<const ReturnValueObject*>(result.get()); return_value != nullptr) {
+            return return_value->value;
+        }
     }
 
     return result;
@@ -40,6 +44,10 @@ namespace {
 
     for (const auto& statement : block->statements) {
         result = eval(statement.get());
+
+        if (result->type() == ObjectType::ReturnValue) {
+            return result;
+        }
     }
 
     return result;
@@ -201,6 +209,12 @@ auto eval(const Node* node) -> std::shared_ptr<Object> {
 
     if (const auto* statement = dynamic_cast<const ExpressionStatement*>(node); statement != nullptr) {
         return eval(statement->expression.get());
+    }
+
+    if (const auto* statement = dynamic_cast<const ReturnStatement*>(node); statement != nullptr) {
+        auto result = std::make_shared<ReturnValueObject>();
+        result->value = eval(statement->return_value.get());
+        return result;
     }
 
     if (const auto* block = dynamic_cast<const BlockStatement*>(node); block != nullptr) {

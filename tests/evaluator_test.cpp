@@ -169,3 +169,23 @@ TEST_CASE("TestIfElseExpressions", "[evaluator]") {
         }, test_case.expected);
     }
 }
+
+TEST_CASE("TestReturnStatements", "[evaluator]") {
+    struct TestCase {
+        std::string_view input;
+        std::int64_t expected;
+    };
+
+    constexpr TestCase test_cases[] = {
+        {"return 10;", 10},
+        {"return 10; 9;", 10},
+        {"return 2 * 5; 9;", 10},
+        {"9; return 2 * 5; 9;", 10},
+        {"if (10 > 1) { if (10 > 1) { return 10; } return 1; }", 10},
+    };
+
+    for (const auto& test_case : test_cases) {
+        const auto evaluated = test_eval(test_case.input);
+        test_integer_object(evaluated.get(), test_case.expected);
+    }
+}

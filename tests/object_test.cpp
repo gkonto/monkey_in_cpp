@@ -27,3 +27,15 @@ TEST_CASE("NullObject exposes Null type and inspect value", "[object]") {
     REQUIRE(to_string(object.type()) == "Null");
     REQUIRE(object.inspect() == "null");
 }
+
+TEST_CASE("ReturnValueObject exposes ReturnValue type and inspect value", "[object]") {
+    auto value = std::make_shared<IntegerObject>();
+    value->value = 10;
+
+    ReturnValueObject object {};
+    object.value = value;
+
+    REQUIRE(object.type() == ObjectType::ReturnValue);
+    REQUIRE(to_string(object.type()) == "ReturnValue");
+    REQUIRE(object.inspect() == "10");
+}

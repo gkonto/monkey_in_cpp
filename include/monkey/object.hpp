@@ -1,12 +1,14 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 
 enum class ObjectType {
     Integer,
     Boolean,
     Null,
+    ReturnValue,
 };
 
 [[nodiscard]] inline auto to_string(ObjectType type) -> std::string {
@@ -17,6 +19,8 @@ enum class ObjectType {
             return "Boolean";
         case ObjectType::Null:
             return "Null";
+        case ObjectType::ReturnValue:
+            return "ReturnValue";
     }
 
     return "Unknown";
@@ -60,5 +64,21 @@ struct NullObject : Object {
 
     [[nodiscard]] auto inspect() const -> std::string override {
         return "null";
+    }
+};
+
+struct ReturnValueObject : Object {
+    std::shared_ptr<Object> value;
+
+    [[nodiscard]] auto type() const -> ObjectType override {
+        return ObjectType::ReturnValue;
+    }
+
+    [[nodiscard]] auto inspect() const -> std::string override {
+        if (value == nullptr) {
+            return "null";
+        }
+
+        return value->inspect();
     }
 };
