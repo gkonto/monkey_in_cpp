@@ -46,6 +46,15 @@ void test_null_object(const Object* object) {
     REQUIRE(null->inspect() == "null");
 }
 
+void test_error_object(const Object* object, std::string_view expected_message) {
+    REQUIRE(object != nullptr);
+
+    const auto* error = dynamic_cast<const ErrorObject*>(object);
+    REQUIRE(error != nullptr);
+    REQUIRE(error->message == expected_message);
+    REQUIRE(error->type() == ObjectType::Error);
+}
+
 }  // namespace
 
 TEST_CASE("TestEvalIntegerExpression", "[evaluator]") {
@@ -187,5 +196,30 @@ TEST_CASE("TestReturnStatements", "[evaluator]") {
     for (const auto& test_case : test_cases) {
         const auto evaluated = test_eval(test_case.input);
         test_integer_object(evaluated.get(), test_case.expected);
+    }
+}
+
+TEST_CASE("TestErrorHandling", "[evaluator]") {
+    struct TestCase {
+        std::string_view input;
+        std::string_view expected_message;
+    };
+
+    constexpr TestCase test_cases[] = {
+        {"5 + true;", "type mismatch: Integer + Boolean"},
+        {"5 + true; 5;", "type mismatch: Integer + Boolean"},
+        {"-true", "unknown operator: -Boolean"},
+        {"true + false;", "unknown operator: Boolean + Boolean"},
+        {"5; true + false; 5", "unknown operator: Boolean + Boolean"},
+        {"if (10 > 1) { true + false; }", "unknown operator: Boolean + Boolean"},
+        {
+            "if (10 > 1) { if (10 > 1) { return true + false; } return 1; }",
+            "unknown operator: Boolean + Boolean",
+        },
+    };
+
+    for (const auto& test_case : test_cases) {
+        const auto evaluated = test_eval(test_case.input);
+        test_error_object(evaluated.get(), test_case.expected_message);
     }
 }

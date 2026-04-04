@@ -39,3 +39,12 @@ TEST_CASE("ReturnValueObject exposes ReturnValue type and inspect value", "[obje
     REQUIRE(to_string(object.type()) == "ReturnValue");
     REQUIRE(object.inspect() == "10");
 }
+
+TEST_CASE("ErrorObject exposes Error type and inspect value", "[object]") {
+    ErrorObject object {};
+    object.message = "type mismatch";
+
+    REQUIRE(object.type() == ObjectType::Error);
+    REQUIRE(to_string(object.type()) == "Error");
+    REQUIRE(object.inspect() == "ERROR: type mismatch");
+}

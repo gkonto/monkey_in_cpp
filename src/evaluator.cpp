@@ -25,11 +25,25 @@ namespace {
     return null_object;
 }
 
+[[nodiscard]] auto new_error(std::string message) -> std::shared_ptr<Object> {
+    auto error = std::make_shared<ErrorObject>();
+    error->message = std::move(message);
+    return error;
+}
+
+[[nodiscard]] auto is_error(const std::shared_ptr<Object>& object) -> bool {
+    return object != nullptr && object->type() == ObjectType::Error;
+}
+
 [[nodiscard]] auto eval_program(const Program* program) -> std::shared_ptr<Object> {
     auto result = nullObject();
 
     for (const auto& statement : program->statements) {
         result = eval(statement.get());
+
+        if (is_error(result)) {
+            return result;
+        }
 
         if (const auto* return_value = dynamic_cast<const ReturnValueObject*>(result.get()); return_value != nullptr) {
             return return_value->value;
@@ -45,7 +59,7 @@ namespace {
     for (const auto& statement : block->statements) {
         result = eval(statement.get());
 
-        if (result->type() == ObjectType::ReturnValue) {
+        if (result->type() == ObjectType::ReturnValue || result->type() == ObjectType::Error) {
             return result;
         }
     }
@@ -71,6 +85,9 @@ namespace {
 
 [[nodiscard]] auto eval_if_expression(const IfExpression* expression) -> std::shared_ptr<Object> {
     const auto condition = eval(expression->condition.get());
+    if (is_error(condition)) {
+        return condition;
+    }
 
     if (is_truthy(condition)) {
         return eval(expression->consequence.get());
@@ -102,7 +119,7 @@ namespace {
 [[nodiscard]] auto eval_minus_prefix_operator_expression(const std::shared_ptr<Object>& right) -> std::shared_ptr<Object> {
     const auto* integer = dynamic_cast<const IntegerObject*>(right.get());
     if (integer == nullptr) {
-        return nullObject();
+        return new_error("unknown operator: -" + std::string(to_string(right->type())));
     }
 
     auto result = std::make_shared<IntegerObject>();
@@ -122,7 +139,7 @@ namespace {
         return eval_minus_prefix_operator_expression(right);
     }
 
-    return nullObject();
+    return new_error("unknown operator: " + op + std::string(to_string(right->type())));
 }
 
 [[nodiscard]] auto eval_integer_infix_expression(
@@ -170,7 +187,12 @@ namespace {
         return nativeBoolToBooleanObject(left->value != right->value);
     }
 
-    return nullObject();
+    return new_error(
+        "unknown operator: " +
+        std::string(to_string(left->type())) + " " +
+        op + " " +
+        std::string(to_string(right->type()))
+    );
 }
 
 [[nodiscard]] auto eval_infix_expression(
@@ -193,7 +215,21 @@ namespace {
         return nativeBoolToBooleanObject(left != right);
     }
 
-    return nullObject();
+    if (left->type() != right->type()) {
+        return new_error(
+            "type mismatch: " +
+            std::string(to_string(left->type())) + " " +
+            op + " " +
+            std::string(to_string(right->type()))
+        );
+    }
+
+    return new_error(
+        "unknown operator: " +
+        std::string(to_string(left->type())) + " " +
+        op + " " +
+        std::string(to_string(right->type()))
+    );
 }
 
 }  // namespace
@@ -214,6 +250,9 @@ auto eval(const Node* node) -> std::shared_ptr<Object> {
     if (const auto* statement = dynamic_cast<const ReturnStatement*>(node); statement != nullptr) {
         auto result = std::make_shared<ReturnValueObject>();
         result->value = eval(statement->return_value.get());
+        if (is_error(result->value)) {
+            return result->value;
+        }
         return result;
     }
 
@@ -223,12 +262,21 @@ auto eval(const Node* node) -> std::shared_ptr<Object> {
 
     if (const auto* prefix_expression = dynamic_cast<const PrefixExpression*>(node); prefix_expression != nullptr) {
         const auto right = eval(prefix_expression->right.get());
+        if (is_error(right)) {
+            return right;
+        }
         return eval_prefix_expression(prefix_expression->op, right);
     }
 
     if (const auto* infix_expression = dynamic_cast<const InfixExpression*>(node); infix_expression != nullptr) {
         const auto left = eval(infix_expression->left.get());
+        if (is_error(left)) {
+            return left;
+        }
         const auto right = eval(infix_expression->right.get());
+        if (is_error(right)) {
+            return right;
+        }
         return eval_infix_expression(infix_expression->op, left, right);
     }
 

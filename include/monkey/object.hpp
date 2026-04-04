@@ -9,6 +9,7 @@ enum class ObjectType {
     Boolean,
     Null,
     ReturnValue,
+    Error,
 };
 
 [[nodiscard]] inline auto to_string(ObjectType type) -> std::string {
@@ -21,6 +22,8 @@ enum class ObjectType {
             return "Null";
         case ObjectType::ReturnValue:
             return "ReturnValue";
+        case ObjectType::Error:
+            return "Error";
     }
 
     return "Unknown";
@@ -80,5 +83,17 @@ struct ReturnValueObject : Object {
         }
 
         return value->inspect();
+    }
+};
+
+struct ErrorObject : Object {
+    std::string message;
+
+    [[nodiscard]] auto type() const -> ObjectType override {
+        return ObjectType::Error;
+    }
+
+    [[nodiscard]] auto inspect() const -> std::string override {
+        return "ERROR: " + message;
     }
 };
