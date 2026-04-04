@@ -2,9 +2,20 @@
 
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "monkey/lexer.hpp"
-#include "monkey/token.hpp"
+#include "monkey/parser.hpp"
+
+namespace {
+
+void print_parser_errors(std::ostream& output, const std::vector<std::string>& errors) {
+    for (const auto& error : errors) {
+        output << error << '\n';
+    }
+}
+
+}  // namespace
 
 void start_repl(std::istream& input, std::ostream& output) {
     std::string line {};
@@ -18,14 +29,14 @@ void start_repl(std::istream& input, std::ostream& output) {
         }
 
         Lexer lexer {line};
+        Parser parser {lexer};
+        const auto program = parser.parse_program();
 
-        while (true) {
-            const auto token = lexer.next_token();
-            output << to_string(token.type) << ' ' << '"' << token.literal << '"' << '\n';
-
-            if (token.type == TokenType::EndOfFile) {
-                break;
-            }
+        if (!parser.errors().empty()) {
+            print_parser_errors(output, parser.errors());
+            continue;
         }
+
+        output << program.as_string() << '\n';
     }
 }
