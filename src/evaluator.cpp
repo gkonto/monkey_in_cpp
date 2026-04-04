@@ -530,155 +530,150 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
         return nullObject();
     }
 
-    if (const auto* program = dynamic_cast<const Program*>(node); program != nullptr) {
-        return eval_program(program, environment);
-    }
-
-    if (const auto* statement = dynamic_cast<const ExpressionStatement*>(node); statement != nullptr) {
-        return eval_node(statement->expression.get(), environment);
-    }
-
-    if (const auto* statement = dynamic_cast<const LetStatement*>(node); statement != nullptr) {
-        const auto value = eval_node(statement->value.get(), environment);
-        if (is_error(value)) {
-            return value;
+    switch (node->kind()) {
+        case NodeType::Program:
+            return eval_program(static_cast<const Program*>(node), environment);
+        case NodeType::ExpressionStatement: {
+            const auto* statement = static_cast<const ExpressionStatement*>(node);
+            return eval_node(statement->expression.get(), environment);
         }
-
-        environment.set(statement->name.literal, value);
-
-        if (value->type() == ObjectType::Function) {
-            value->function_env_mut()->set(statement->name.literal, value);
-        }
-
-        return nullObject();
-    }
-
-    if (const auto* statement = dynamic_cast<const ReturnStatement*>(node); statement != nullptr) {
-        const auto value = eval_node(statement->return_value.get(), environment);
-        if (is_error(value)) {
-            return value;
-        }
-        return std::make_shared<Object>(Object::make_return(value));
-    }
-
-    if (const auto* block = dynamic_cast<const BlockStatement*>(node); block != nullptr) {
-        return eval_block_statement(block, environment);
-    }
-
-    if (const auto* prefix_expression = dynamic_cast<const PrefixExpression*>(node); prefix_expression != nullptr) {
-        const auto right = eval_node(prefix_expression->right.get(), environment);
-        if (is_error(right)) {
-            return right;
-        }
-        return eval_prefix_expression(prefix_expression->op, right);
-    }
-
-    if (const auto* infix_expression = dynamic_cast<const InfixExpression*>(node); infix_expression != nullptr) {
-        const auto left = eval_node(infix_expression->left.get(), environment);
-        if (is_error(left)) {
-            return left;
-        }
-        const auto right = eval_node(infix_expression->right.get(), environment);
-        if (is_error(right)) {
-            return right;
-        }
-        return eval_infix_expression(infix_expression->op, left, right);
-    }
-
-    if (const auto* call_expression = dynamic_cast<const CallExpression*>(node); call_expression != nullptr) {
-        const auto function = eval_node(call_expression->function.get(), environment);
-        if (is_error(function)) {
-            return function;
-        }
-
-        const auto arguments = eval_expressions(call_expression->arguments, environment);
-        if (arguments.size() == 1 && is_error(arguments[0])) {
-            return arguments[0];
-        }
-
-        return apply_function(function, arguments);
-    }
-
-    if (const auto* index_expression = dynamic_cast<const IndexExpression*>(node); index_expression != nullptr) {
-        const auto left = eval_node(index_expression->left.get(), environment);
-        if (is_error(left)) {
-            return left;
-        }
-
-        const auto index = eval_node(index_expression->index.get(), environment);
-        if (is_error(index)) {
-            return index;
-        }
-
-        return eval_index_expression(left, index);
-    }
-
-    if (const auto* identifier = dynamic_cast<const Identifier*>(node); identifier != nullptr) {
-        const auto value = environment.get(identifier->value);
-        if (value != nullptr) {
-            return value;
-        }
-
-        const auto builtin = get_builtin_by_name(identifier->value);
-        if (builtin != nullptr) {
-            return builtin;
-        }
-
-        return new_error("identifier not found: " + identifier->value);
-    }
-
-    if (const auto* integer_literal = dynamic_cast<const IntegerLiteral*>(node); integer_literal != nullptr) {
-        return std::make_shared<Object>(Object::make_integer(integer_literal->value));
-    }
-
-    if (const auto* boolean = dynamic_cast<const Boolean*>(node); boolean != nullptr) {
-        return nativeBoolToBooleanObject(boolean->value);
-    }
-
-    if (const auto* string_literal = dynamic_cast<const StringLiteral*>(node); string_literal != nullptr) {
-        return std::make_shared<Object>(Object::make_string(string_literal->value));
-    }
-
-    if (const auto* array_literal = dynamic_cast<const ArrayLiteral*>(node); array_literal != nullptr) {
-        const auto elements = eval_expressions(array_literal->elements, environment);
-        if (elements.size() == 1 && is_error(elements[0])) {
-            return elements[0];
-        }
-
-        return std::make_shared<Object>(Object::make_array(elements));
-    }
-
-    if (const auto* hash_literal = dynamic_cast<const HashLiteral*>(node); hash_literal != nullptr) {
-        return eval_hash_literal(hash_literal, environment);
-    }
-
-    if (const auto* if_expression = dynamic_cast<const IfExpression*>(node); if_expression != nullptr) {
-        return eval_if_expression(if_expression, environment);
-    }
-
-    if (const auto* function_literal = dynamic_cast<const FunctionLiteral*>(node); function_literal != nullptr) {
-        std::vector<std::unique_ptr<Identifier>> parameters;
-        for (const auto& parameter : function_literal->parameters) {
-            if (parameter != nullptr) {
-                auto parameter_clone = std::make_unique<Identifier>();
-                parameter_clone->token = parameter->token;
-                parameter_clone->value = parameter->value;
-                parameters.push_back(std::move(parameter_clone));
+        case NodeType::LetStatement: {
+            const auto* statement = static_cast<const LetStatement*>(node);
+            const auto value = eval_node(statement->value.get(), environment);
+            if (is_error(value)) {
+                return value;
             }
+
+            environment.set(statement->name.literal, value);
+
+            if (value->type() == ObjectType::Function) {
+                value->function_env_mut()->set(statement->name.literal, value);
+            }
+
+            return nullObject();
         }
+        case NodeType::ReturnStatement: {
+            const auto* statement = static_cast<const ReturnStatement*>(node);
+            const auto value = eval_node(statement->return_value.get(), environment);
+            if (is_error(value)) {
+                return value;
+            }
+            return std::make_shared<Object>(Object::make_return(value));
+        }
+        case NodeType::BlockStatement:
+            return eval_block_statement(static_cast<const BlockStatement*>(node), environment);
+        case NodeType::PrefixExpression: {
+            const auto* prefix_expression = static_cast<const PrefixExpression*>(node);
+            const auto right = eval_node(prefix_expression->right.get(), environment);
+            if (is_error(right)) {
+                return right;
+            }
+            return eval_prefix_expression(prefix_expression->op, right);
+        }
+        case NodeType::InfixExpression: {
+            const auto* infix_expression = static_cast<const InfixExpression*>(node);
+            const auto left = eval_node(infix_expression->left.get(), environment);
+            if (is_error(left)) {
+                return left;
+            }
+            const auto right = eval_node(infix_expression->right.get(), environment);
+            if (is_error(right)) {
+                return right;
+            }
+            return eval_infix_expression(infix_expression->op, left, right);
+        }
+        case NodeType::CallExpression: {
+            const auto* call_expression = static_cast<const CallExpression*>(node);
+            const auto function = eval_node(call_expression->function.get(), environment);
+            if (is_error(function)) {
+                return function;
+            }
 
-        auto body = function_literal->body != nullptr
-            ? clone_block_statement(*function_literal->body)
-            : nullptr;
+            const auto arguments = eval_expressions(call_expression->arguments, environment);
+            if (arguments.size() == 1 && is_error(arguments[0])) {
+                return arguments[0];
+            }
 
-        return std::make_shared<Object>(Object::make_function(
-            std::move(parameters),
-            std::move(body),
-            std::make_shared<Environment>(environment)
-        ));
+            return apply_function(function, arguments);
+        }
+        case NodeType::IndexExpression: {
+            const auto* index_expression = static_cast<const IndexExpression*>(node);
+            const auto left = eval_node(index_expression->left.get(), environment);
+            if (is_error(left)) {
+                return left;
+            }
+
+            const auto index = eval_node(index_expression->index.get(), environment);
+            if (is_error(index)) {
+                return index;
+            }
+
+            return eval_index_expression(left, index);
+        }
+        case NodeType::Identifier: {
+            const auto* identifier = static_cast<const Identifier*>(node);
+            const auto value = environment.get(identifier->value);
+            if (value != nullptr) {
+                return value;
+            }
+
+            const auto builtin = get_builtin_by_name(identifier->value);
+            if (builtin != nullptr) {
+                return builtin;
+            }
+
+            return new_error("identifier not found: " + identifier->value);
+        }
+        case NodeType::IntegerLiteral: {
+            const auto* integer_literal = static_cast<const IntegerLiteral*>(node);
+            return std::make_shared<Object>(Object::make_integer(integer_literal->value));
+        }
+        case NodeType::Boolean: {
+            const auto* boolean = static_cast<const Boolean*>(node);
+            return nativeBoolToBooleanObject(boolean->value);
+        }
+        case NodeType::StringLiteral: {
+            const auto* string_literal = static_cast<const StringLiteral*>(node);
+            return std::make_shared<Object>(Object::make_string(string_literal->value));
+        }
+        case NodeType::ArrayLiteral: {
+            const auto* array_literal = static_cast<const ArrayLiteral*>(node);
+            const auto elements = eval_expressions(array_literal->elements, environment);
+            if (elements.size() == 1 && is_error(elements[0])) {
+                return elements[0];
+            }
+
+            return std::make_shared<Object>(Object::make_array(elements));
+        }
+        case NodeType::HashLiteral:
+            return eval_hash_literal(static_cast<const HashLiteral*>(node), environment);
+        case NodeType::IfExpression:
+            return eval_if_expression(static_cast<const IfExpression*>(node), environment);
+        case NodeType::FunctionLiteral: {
+            const auto* function_literal = static_cast<const FunctionLiteral*>(node);
+            std::vector<std::unique_ptr<Identifier>> parameters;
+            for (const auto& parameter : function_literal->parameters) {
+                if (parameter != nullptr) {
+                    auto parameter_clone = std::make_unique<Identifier>();
+                    parameter_clone->token = parameter->token;
+                    parameter_clone->value = parameter->value;
+                    parameters.push_back(std::move(parameter_clone));
+                }
+            }
+
+            auto body = function_literal->body != nullptr
+                ? clone_block_statement(*function_literal->body)
+                : nullptr;
+
+            return std::make_shared<Object>(Object::make_function(
+                std::move(parameters),
+                std::move(body),
+                std::make_shared<Environment>(environment)
+            ));
+        }
+        default:
+            return nullObject();
     }
-
-    return nullObject();
 }
 
 auto eval(const Node* node, Environment& environment) -> std::shared_ptr<Object> {

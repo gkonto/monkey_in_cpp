@@ -72,22 +72,53 @@ enum class EvalOperator {
     }
 }
 
+enum class NodeType {
+    Program,
+    Identifier,
+    IntegerLiteral,
+    Boolean,
+    StringLiteral,
+    ArrayLiteral,
+    HashLiteral,
+    PrefixExpression,
+    InfixExpression,
+    BlockStatement,
+    IfExpression,
+    FunctionLiteral,
+    CallExpression,
+    IndexExpression,
+    ExpressionStatement,
+    LetStatement,
+    ReturnStatement,
+};
+
 struct Node {
+    explicit Node(NodeType node_type) : node_type_(node_type) {}
     virtual ~Node() = default;
+
+    [[nodiscard]] auto kind() const -> NodeType {
+        return node_type_;
+    }
 
     [[nodiscard]] virtual auto token_literal() const -> std::string = 0;
     [[nodiscard]] virtual auto as_string() const -> std::string = 0;
+
+private:
+    NodeType node_type_;
 };
 
 struct Statement : Node {
+    explicit Statement(NodeType node_type) : Node(node_type) {}
     ~Statement() override = default;
 };
 
 struct Expression : Node {
+    explicit Expression(NodeType node_type) : Node(node_type) {}
     ~Expression() override = default;
 };
 
 struct Identifier : Expression {
+    Identifier() : Expression(NodeType::Identifier) {}
     Token token;
     std::string value;
 
@@ -101,6 +132,7 @@ struct Identifier : Expression {
 };
 
 struct IntegerLiteral : Expression {
+    IntegerLiteral() : Expression(NodeType::IntegerLiteral) {}
     Token token;
     std::int64_t value {0};
 
@@ -114,6 +146,7 @@ struct IntegerLiteral : Expression {
 };
 
 struct Boolean : Expression {
+    Boolean() : Expression(NodeType::Boolean) {}
     Token token;
     bool value {false};
 
@@ -127,6 +160,7 @@ struct Boolean : Expression {
 };
 
 struct StringLiteral : Expression {
+    StringLiteral() : Expression(NodeType::StringLiteral) {}
     Token token;
     std::string value;
 
@@ -140,6 +174,7 @@ struct StringLiteral : Expression {
 };
 
 struct ArrayLiteral : Expression {
+    ArrayLiteral() : Expression(NodeType::ArrayLiteral) {}
     Token token;
     std::vector<std::unique_ptr<Expression>> elements;
 
@@ -166,6 +201,7 @@ struct ArrayLiteral : Expression {
 };
 
 struct HashLiteral : Expression {
+    HashLiteral() : Expression(NodeType::HashLiteral) {}
     Token token;
     std::vector<std::pair<std::unique_ptr<Expression>, std::unique_ptr<Expression>>> pairs;
 
@@ -198,6 +234,7 @@ struct HashLiteral : Expression {
 };
 
 struct PrefixExpression : Expression {
+    PrefixExpression() : Expression(NodeType::PrefixExpression) {}
     Token token;
     EvalOperator op {EvalOperator::Invalid};
     std::unique_ptr<Expression> right;
@@ -219,6 +256,7 @@ struct PrefixExpression : Expression {
 };
 
 struct InfixExpression : Expression {
+    InfixExpression() : Expression(NodeType::InfixExpression) {}
     Token token;
     std::unique_ptr<Expression> left;
     EvalOperator op {EvalOperator::Invalid};
@@ -247,6 +285,7 @@ struct InfixExpression : Expression {
 };
 
 struct BlockStatement : Statement {
+    BlockStatement() : Statement(NodeType::BlockStatement) {}
     Token token;
     std::vector<std::unique_ptr<Statement>> statements;
 
@@ -268,6 +307,7 @@ struct BlockStatement : Statement {
 };
 
 struct IfExpression : Expression {
+    IfExpression() : Expression(NodeType::IfExpression) {}
     Token token;
     std::unique_ptr<Expression> condition;
     std::unique_ptr<BlockStatement> consequence;
@@ -300,6 +340,7 @@ struct IfExpression : Expression {
 };
 
 struct FunctionLiteral : Expression {
+    FunctionLiteral() : Expression(NodeType::FunctionLiteral) {}
     Token token;
     std::vector<std::unique_ptr<Identifier>> parameters;
     std::unique_ptr<BlockStatement> body;
@@ -333,6 +374,7 @@ struct FunctionLiteral : Expression {
 };
 
 struct CallExpression : Expression {
+    CallExpression() : Expression(NodeType::CallExpression) {}
     Token token;
     std::unique_ptr<Expression> function;
     std::vector<std::unique_ptr<Expression>> arguments;
@@ -366,6 +408,7 @@ struct CallExpression : Expression {
 };
 
 struct IndexExpression : Expression {
+    IndexExpression() : Expression(NodeType::IndexExpression) {}
     Token token;
     std::unique_ptr<Expression> left;
     std::unique_ptr<Expression> index;
@@ -393,6 +436,7 @@ struct IndexExpression : Expression {
 };
 
 struct ExpressionStatement : Statement {
+    ExpressionStatement() : Statement(NodeType::ExpressionStatement) {}
     Token token;
     std::unique_ptr<Expression> expression;
 
@@ -410,6 +454,7 @@ struct ExpressionStatement : Statement {
 };
 
 struct Program : Node {
+    Program() : Node(NodeType::Program) {}
     std::vector<std::unique_ptr<Statement>> statements {};
 
     [[nodiscard]] auto token_literal() const -> std::string override {
@@ -434,6 +479,7 @@ struct Program : Node {
 };
 
 struct LetStatement : Statement {
+    LetStatement() : Statement(NodeType::LetStatement) {}
     Token token;
     Token name;
     std::unique_ptr<Expression> value;
@@ -455,6 +501,7 @@ struct LetStatement : Statement {
 };
 
 struct ReturnStatement : Statement {
+    ReturnStatement() : Statement(NodeType::ReturnStatement) {}
     Token token;
     std::unique_ptr<Expression> return_value;
 
@@ -491,181 +538,185 @@ struct ReturnStatement : Statement {
 }
 
 [[nodiscard]] inline auto clone_expression(const Expression& expression) -> std::unique_ptr<Expression> {
-    if (const auto* identifier = dynamic_cast<const Identifier*>(&expression); identifier != nullptr) {
-        auto clone = std::make_unique<Identifier>();
-        clone->token = identifier->token;
-        clone->value = identifier->value;
-        return clone;
-    }
-
-    if (const auto* literal = dynamic_cast<const IntegerLiteral*>(&expression); literal != nullptr) {
-        auto clone = std::make_unique<IntegerLiteral>();
-        clone->token = literal->token;
-        clone->value = literal->value;
-        return clone;
-    }
-
-    if (const auto* boolean = dynamic_cast<const Boolean*>(&expression); boolean != nullptr) {
-        auto clone = std::make_unique<Boolean>();
-        clone->token = boolean->token;
-        clone->value = boolean->value;
-        return clone;
-    }
-
-    if (const auto* literal = dynamic_cast<const StringLiteral*>(&expression); literal != nullptr) {
-        auto clone = std::make_unique<StringLiteral>();
-        clone->token = literal->token;
-        clone->value = literal->value;
-        return clone;
-    }
-
-    if (const auto* array = dynamic_cast<const ArrayLiteral*>(&expression); array != nullptr) {
-        auto clone = std::make_unique<ArrayLiteral>();
-        clone->token = array->token;
-        for (const auto& element : array->elements) {
-            if (element != nullptr) {
-                clone->elements.push_back(clone_expression(*element));
+    switch (expression.kind()) {
+        case NodeType::Identifier: {
+            const auto& identifier = static_cast<const Identifier&>(expression);
+            auto clone = std::make_unique<Identifier>();
+            clone->token = identifier.token;
+            clone->value = identifier.value;
+            return clone;
+        }
+        case NodeType::IntegerLiteral: {
+            const auto& literal = static_cast<const IntegerLiteral&>(expression);
+            auto clone = std::make_unique<IntegerLiteral>();
+            clone->token = literal.token;
+            clone->value = literal.value;
+            return clone;
+        }
+        case NodeType::Boolean: {
+            const auto& boolean = static_cast<const Boolean&>(expression);
+            auto clone = std::make_unique<Boolean>();
+            clone->token = boolean.token;
+            clone->value = boolean.value;
+            return clone;
+        }
+        case NodeType::StringLiteral: {
+            const auto& literal = static_cast<const StringLiteral&>(expression);
+            auto clone = std::make_unique<StringLiteral>();
+            clone->token = literal.token;
+            clone->value = literal.value;
+            return clone;
+        }
+        case NodeType::ArrayLiteral: {
+            const auto& array = static_cast<const ArrayLiteral&>(expression);
+            auto clone = std::make_unique<ArrayLiteral>();
+            clone->token = array.token;
+            for (const auto& element : array.elements) {
+                if (element != nullptr) {
+                    clone->elements.push_back(clone_expression(*element));
+                }
             }
+            return clone;
         }
-        return clone;
-    }
+        case NodeType::HashLiteral: {
+            const auto& hash = static_cast<const HashLiteral&>(expression);
+            auto clone = std::make_unique<HashLiteral>();
+            clone->token = hash.token;
+            for (const auto& [key, value] : hash.pairs) {
+                std::unique_ptr<Expression> key_clone;
+                std::unique_ptr<Expression> value_clone;
 
-    if (const auto* hash = dynamic_cast<const HashLiteral*>(&expression); hash != nullptr) {
-        auto clone = std::make_unique<HashLiteral>();
-        clone->token = hash->token;
-        for (const auto& [key, value] : hash->pairs) {
-            std::unique_ptr<Expression> key_clone;
-            std::unique_ptr<Expression> value_clone;
+                if (key != nullptr) {
+                    key_clone = clone_expression(*key);
+                }
 
-            if (key != nullptr) {
-                key_clone = clone_expression(*key);
+                if (value != nullptr) {
+                    value_clone = clone_expression(*value);
+                }
+
+                clone->pairs.push_back({std::move(key_clone), std::move(value_clone)});
             }
-
-            if (value != nullptr) {
-                value_clone = clone_expression(*value);
+            return clone;
+        }
+        case NodeType::PrefixExpression: {
+            const auto& prefix = static_cast<const PrefixExpression&>(expression);
+            auto clone = std::make_unique<PrefixExpression>();
+            clone->token = prefix.token;
+            clone->op = prefix.op;
+            if (prefix.right != nullptr) {
+                clone->right = clone_expression(*prefix.right);
             }
-
-            clone->pairs.push_back({std::move(key_clone), std::move(value_clone)});
+            return clone;
         }
-        return clone;
-    }
-
-    if (const auto* prefix = dynamic_cast<const PrefixExpression*>(&expression); prefix != nullptr) {
-        auto clone = std::make_unique<PrefixExpression>();
-        clone->token = prefix->token;
-        clone->op = prefix->op;
-        if (prefix->right != nullptr) {
-            clone->right = clone_expression(*prefix->right);
-        }
-        return clone;
-    }
-
-    if (const auto* infix = dynamic_cast<const InfixExpression*>(&expression); infix != nullptr) {
-        auto clone = std::make_unique<InfixExpression>();
-        clone->token = infix->token;
-        clone->op = infix->op;
-        if (infix->left != nullptr) {
-            clone->left = clone_expression(*infix->left);
-        }
-        if (infix->right != nullptr) {
-            clone->right = clone_expression(*infix->right);
-        }
-        return clone;
-    }
-
-    if (const auto* if_expression = dynamic_cast<const IfExpression*>(&expression); if_expression != nullptr) {
-        auto clone = std::make_unique<IfExpression>();
-        clone->token = if_expression->token;
-        if (if_expression->condition != nullptr) {
-            clone->condition = clone_expression(*if_expression->condition);
-        }
-        if (if_expression->consequence != nullptr) {
-            clone->consequence = clone_block_statement(*if_expression->consequence);
-        }
-        if (if_expression->alternative != nullptr) {
-            clone->alternative = clone_block_statement(*if_expression->alternative);
-        }
-        return clone;
-    }
-
-    if (const auto* function = dynamic_cast<const FunctionLiteral*>(&expression); function != nullptr) {
-        auto clone = std::make_unique<FunctionLiteral>();
-        clone->token = function->token;
-        for (const auto& parameter : function->parameters) {
-            if (parameter != nullptr) {
-                auto parameter_clone = std::make_unique<Identifier>();
-                parameter_clone->token = parameter->token;
-                parameter_clone->value = parameter->value;
-                clone->parameters.push_back(std::move(parameter_clone));
+        case NodeType::InfixExpression: {
+            const auto& infix = static_cast<const InfixExpression&>(expression);
+            auto clone = std::make_unique<InfixExpression>();
+            clone->token = infix.token;
+            clone->op = infix.op;
+            if (infix.left != nullptr) {
+                clone->left = clone_expression(*infix.left);
             }
-        }
-        if (function->body != nullptr) {
-            clone->body = clone_block_statement(*function->body);
-        }
-        return clone;
-    }
-
-    if (const auto* call = dynamic_cast<const CallExpression*>(&expression); call != nullptr) {
-        auto clone = std::make_unique<CallExpression>();
-        clone->token = call->token;
-        if (call->function != nullptr) {
-            clone->function = clone_expression(*call->function);
-        }
-        for (const auto& argument : call->arguments) {
-            if (argument != nullptr) {
-                clone->arguments.push_back(clone_expression(*argument));
+            if (infix.right != nullptr) {
+                clone->right = clone_expression(*infix.right);
             }
+            return clone;
         }
-        return clone;
+        case NodeType::IfExpression: {
+            const auto& if_expression = static_cast<const IfExpression&>(expression);
+            auto clone = std::make_unique<IfExpression>();
+            clone->token = if_expression.token;
+            if (if_expression.condition != nullptr) {
+                clone->condition = clone_expression(*if_expression.condition);
+            }
+            if (if_expression.consequence != nullptr) {
+                clone->consequence = clone_block_statement(*if_expression.consequence);
+            }
+            if (if_expression.alternative != nullptr) {
+                clone->alternative = clone_block_statement(*if_expression.alternative);
+            }
+            return clone;
+        }
+        case NodeType::FunctionLiteral: {
+            const auto& function = static_cast<const FunctionLiteral&>(expression);
+            auto clone = std::make_unique<FunctionLiteral>();
+            clone->token = function.token;
+            for (const auto& parameter : function.parameters) {
+                if (parameter != nullptr) {
+                    auto parameter_clone = std::make_unique<Identifier>();
+                    parameter_clone->token = parameter->token;
+                    parameter_clone->value = parameter->value;
+                    clone->parameters.push_back(std::move(parameter_clone));
+                }
+            }
+            if (function.body != nullptr) {
+                clone->body = clone_block_statement(*function.body);
+            }
+            return clone;
+        }
+        case NodeType::CallExpression: {
+            const auto& call = static_cast<const CallExpression&>(expression);
+            auto clone = std::make_unique<CallExpression>();
+            clone->token = call.token;
+            if (call.function != nullptr) {
+                clone->function = clone_expression(*call.function);
+            }
+            for (const auto& argument : call.arguments) {
+                if (argument != nullptr) {
+                    clone->arguments.push_back(clone_expression(*argument));
+                }
+            }
+            return clone;
+        }
+        case NodeType::IndexExpression: {
+            const auto& index = static_cast<const IndexExpression&>(expression);
+            auto clone = std::make_unique<IndexExpression>();
+            clone->token = index.token;
+            if (index.left != nullptr) {
+                clone->left = clone_expression(*index.left);
+            }
+            if (index.index != nullptr) {
+                clone->index = clone_expression(*index.index);
+            }
+            return clone;
+        }
+        default:
+            return nullptr;
     }
-
-    if (const auto* index = dynamic_cast<const IndexExpression*>(&expression); index != nullptr) {
-        auto clone = std::make_unique<IndexExpression>();
-        clone->token = index->token;
-        if (index->left != nullptr) {
-            clone->left = clone_expression(*index->left);
-        }
-        if (index->index != nullptr) {
-            clone->index = clone_expression(*index->index);
-        }
-        return clone;
-    }
-
-    return nullptr;
 }
 
 [[nodiscard]] inline auto clone_statement(const Statement& statement) -> std::unique_ptr<Statement> {
-    if (const auto* expression_statement = dynamic_cast<const ExpressionStatement*>(&statement); expression_statement != nullptr) {
-        auto clone = std::make_unique<ExpressionStatement>();
-        clone->token = expression_statement->token;
-        if (expression_statement->expression != nullptr) {
-            clone->expression = clone_expression(*expression_statement->expression);
+    switch (statement.kind()) {
+        case NodeType::ExpressionStatement: {
+            const auto& expression_statement = static_cast<const ExpressionStatement&>(statement);
+            auto clone = std::make_unique<ExpressionStatement>();
+            clone->token = expression_statement.token;
+            if (expression_statement.expression != nullptr) {
+                clone->expression = clone_expression(*expression_statement.expression);
+            }
+            return clone;
         }
-        return clone;
-    }
-
-    if (const auto* let_statement = dynamic_cast<const LetStatement*>(&statement); let_statement != nullptr) {
-        auto clone = std::make_unique<LetStatement>();
-        clone->token = let_statement->token;
-        clone->name = let_statement->name;
-        if (let_statement->value != nullptr) {
-            clone->value = clone_expression(*let_statement->value);
+        case NodeType::LetStatement: {
+            const auto& let_statement = static_cast<const LetStatement&>(statement);
+            auto clone = std::make_unique<LetStatement>();
+            clone->token = let_statement.token;
+            clone->name = let_statement.name;
+            if (let_statement.value != nullptr) {
+                clone->value = clone_expression(*let_statement.value);
+            }
+            return clone;
         }
-        return clone;
-    }
-
-    if (const auto* return_statement = dynamic_cast<const ReturnStatement*>(&statement); return_statement != nullptr) {
-        auto clone = std::make_unique<ReturnStatement>();
-        clone->token = return_statement->token;
-        if (return_statement->return_value != nullptr) {
-            clone->return_value = clone_expression(*return_statement->return_value);
+        case NodeType::ReturnStatement: {
+            const auto& return_statement = static_cast<const ReturnStatement&>(statement);
+            auto clone = std::make_unique<ReturnStatement>();
+            clone->token = return_statement.token;
+            if (return_statement.return_value != nullptr) {
+                clone->return_value = clone_expression(*return_statement.return_value);
+            }
+            return clone;
         }
-        return clone;
+        case NodeType::BlockStatement:
+            return clone_block_statement(static_cast<const BlockStatement&>(statement));
+        default:
+            return nullptr;
     }
-
-    if (const auto* block_statement = dynamic_cast<const BlockStatement*>(&statement); block_statement != nullptr) {
-        return clone_block_statement(*block_statement);
-    }
-
-    return nullptr;
 }
