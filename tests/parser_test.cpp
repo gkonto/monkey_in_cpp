@@ -68,12 +68,25 @@ void test_boolean_literal(const Expression* expression, bool expected_value) {
     REQUIRE(boolean->token_literal() == (expected_value ? "true" : "false"));
 }
 
+void test_string_literal(const Expression* expression, std::string_view expected_value) {
+    REQUIRE(expression != nullptr);
+
+    const auto* string_literal = dynamic_cast<const StringLiteral*>(expression);
+    REQUIRE(string_literal != nullptr);
+    REQUIRE(string_literal->value == expected_value);
+    REQUIRE(string_literal->token_literal() == expected_value);
+}
+
 template <typename T>
 void test_literal_expression(const Expression* expression, const T& expected_value) {
     using ValueType = std::decay_t<T>;
 
     if constexpr (std::is_same_v<ValueType, std::string_view>) {
-        test_identifier(expression, expected_value);
+        if (dynamic_cast<const Identifier*>(expression) != nullptr) {
+            test_identifier(expression, expected_value);
+        } else {
+            test_string_literal(expression, expected_value);
+        }
     } else if constexpr (std::is_same_v<ValueType, std::int64_t>) {
         test_integer_literal(expression, expected_value);
     } else if constexpr (std::is_same_v<ValueType, bool>) {
@@ -168,6 +181,23 @@ TEST_CASE("TestIntegerLiteralExpression", "[parser]") {
     REQUIRE(statement->expression != nullptr);
 
     test_literal_expression(statement->expression.get(), std::int64_t {5});
+}
+
+TEST_CASE("TestStringLiteralExpression", "[parser]") {
+    constexpr auto input = "\"hello world\";";
+
+    auto lexer = Lexer {input};
+    auto parser = Parser {lexer};
+    const auto program = parser.parse_program();
+
+    check_parser_errors(parser);
+    REQUIRE(program.statements.size() == 1);
+
+    const auto* statement = dynamic_cast<const ExpressionStatement*>(program.statements[0].get());
+    REQUIRE(statement != nullptr);
+    REQUIRE(statement->expression != nullptr);
+
+    test_string_literal(statement->expression.get(), "hello world");
 }
 
 TEST_CASE("TestParsingPrefix", "[parser]") {

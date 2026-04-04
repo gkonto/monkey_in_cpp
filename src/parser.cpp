@@ -131,6 +131,13 @@ auto Parser::parse_boolean() -> std::unique_ptr<Boolean> {
     return boolean;
 }
 
+auto Parser::parse_string_literal() -> std::unique_ptr<StringLiteral> {
+    auto literal = std::make_unique<StringLiteral>();
+    literal->token = current_token_;
+    literal->value = current_token_.literal;
+    return literal;
+}
+
 auto Parser::parse_prefix_expression() -> std::unique_ptr<PrefixExpression> {
     auto expression = std::make_unique<PrefixExpression>();
     expression->token = current_token_;
@@ -352,6 +359,12 @@ auto Parser::prefix_parse_fn() -> ParsePrefixFn {
     if (current_token_is(TokenType::True) || current_token_is(TokenType::False)) {
         return [this]() {
             return parse_boolean();
+        };
+    }
+
+    if (current_token_is(TokenType::String)) {
+        return [this]() {
+            return parse_string_literal();
         };
     }
 

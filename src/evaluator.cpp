@@ -198,6 +198,25 @@ namespace {
     );
 }
 
+[[nodiscard]] auto eval_string_infix_expression(
+    const std::string& op,
+    const StringObject* left,
+    const StringObject* right
+) -> std::shared_ptr<Object> {
+    if (op == "+") {
+        auto result = std::make_shared<StringObject>();
+        result->value = left->value + right->value;
+        return result;
+    }
+
+    return new_error(
+        "unknown operator: " +
+        std::string(to_string(left->type())) + " " +
+        op + " " +
+        std::string(to_string(right->type()))
+    );
+}
+
 [[nodiscard]] auto eval_infix_expression(
     const std::string& op,
     const std::shared_ptr<Object>& left,
@@ -208,6 +227,13 @@ namespace {
 
     if (left_integer != nullptr && right_integer != nullptr) {
         return eval_integer_infix_expression(op, left_integer, right_integer);
+    }
+
+    const auto* left_string = dynamic_cast<const StringObject*>(left.get());
+    const auto* right_string = dynamic_cast<const StringObject*>(right.get());
+
+    if (left_string != nullptr && right_string != nullptr) {
+        return eval_string_infix_expression(op, left_string, right_string);
     }
 
     if (op == "==") {
@@ -367,6 +393,12 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
 
     if (const auto* boolean = dynamic_cast<const Boolean*>(node); boolean != nullptr) {
         return nativeBoolToBooleanObject(boolean->value);
+    }
+
+    if (const auto* string_literal = dynamic_cast<const StringLiteral*>(node); string_literal != nullptr) {
+        auto string = std::make_shared<StringObject>();
+        string->value = string_literal->value;
+        return string;
     }
 
     if (const auto* if_expression = dynamic_cast<const IfExpression*>(node); if_expression != nullptr) {

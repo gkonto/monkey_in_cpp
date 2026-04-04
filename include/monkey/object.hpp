@@ -12,6 +12,7 @@ class Environment;
 enum class ObjectType {
     Integer,
     Boolean,
+    String,
     Null,
     ReturnValue,
     Error,
@@ -24,6 +25,8 @@ enum class ObjectType {
             return "Integer";
         case ObjectType::Boolean:
             return "Boolean";
+        case ObjectType::String:
+            return "String";
         case ObjectType::Null:
             return "Null";
         case ObjectType::ReturnValue:
@@ -65,6 +68,18 @@ struct BooleanObject : Object {
 
     [[nodiscard]] auto inspect() const -> std::string override {
         return value ? "true" : "false";
+    }
+};
+
+struct StringObject : Object {
+    std::string value;
+
+    [[nodiscard]] auto type() const -> ObjectType override {
+        return ObjectType::String;
+    }
+
+    [[nodiscard]] auto inspect() const -> std::string override {
+        return value;
     }
 };
 

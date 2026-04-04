@@ -61,6 +61,19 @@ struct Boolean : Expression {
     }
 };
 
+struct StringLiteral : Expression {
+    Token token;
+    std::string value;
+
+    [[nodiscard]] auto token_literal() const -> std::string override {
+        return token.literal;
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        return token.literal;
+    }
+};
+
 struct PrefixExpression : Expression {
     Token token;
     std::string op;
@@ -346,6 +359,13 @@ struct ReturnStatement : Statement {
         auto clone = std::make_unique<Boolean>();
         clone->token = boolean->token;
         clone->value = boolean->value;
+        return clone;
+    }
+
+    if (const auto* literal = dynamic_cast<const StringLiteral*>(&expression); literal != nullptr) {
+        auto clone = std::make_unique<StringLiteral>();
+        clone->token = literal->token;
+        clone->value = literal->value;
         return clone;
     }
 

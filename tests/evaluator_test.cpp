@@ -37,6 +37,15 @@ void test_boolean_object(const Object* object, bool expected_value) {
     REQUIRE(boolean->type() == ObjectType::Boolean);
 }
 
+void test_string_object(const Object* object, std::string_view expected_value) {
+    REQUIRE(object != nullptr);
+
+    const auto* string = dynamic_cast<const StringObject*>(object);
+    REQUIRE(string != nullptr);
+    REQUIRE(string->value == expected_value);
+    REQUIRE(string->type() == ObjectType::String);
+}
+
 void test_null_object(const Object* object) {
     REQUIRE(object != nullptr);
 
@@ -210,6 +219,7 @@ TEST_CASE("TestErrorHandling", "[evaluator]") {
         {"5 + true; 5;", "type mismatch: Integer + Boolean"},
         {"-true", "unknown operator: -Boolean"},
         {"true + false;", "unknown operator: Boolean + Boolean"},
+        {"\"Hello\" - \"World\"", "unknown operator: String - String"},
         {"5; true + false; 5", "unknown operator: Boolean + Boolean"},
         {"if (10 > 1) { true + false; }", "unknown operator: Boolean + Boolean"},
         {
@@ -288,4 +298,18 @@ TEST_CASE("TestClosures", "[evaluator]") {
 
     const auto evaluated = test_eval(input);
     test_integer_object(evaluated.get(), 4);
+}
+
+TEST_CASE("TestStringLiteral", "[evaluator]") {
+    constexpr auto input = "\"hello world\"";
+
+    const auto evaluated = test_eval(input);
+    test_string_object(evaluated.get(), "hello world");
+}
+
+TEST_CASE("TestStringConcatenation", "[evaluator]") {
+    constexpr auto input = "\"Hello\" + \" \" + \"World!\"";
+
+    const auto evaluated = test_eval(input);
+    test_string_object(evaluated.get(), "Hello World!");
 }

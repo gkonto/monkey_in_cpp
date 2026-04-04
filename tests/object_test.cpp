@@ -20,6 +20,15 @@ TEST_CASE("BooleanObject exposes Boolean type and inspect value", "[object]") {
     REQUIRE(object.inspect() == "true");
 }
 
+TEST_CASE("StringObject exposes String type and inspect value", "[object]") {
+    StringObject object {};
+    object.value = "hello";
+
+    REQUIRE(object.type() == ObjectType::String);
+    REQUIRE(to_string(object.type()) == "String");
+    REQUIRE(object.inspect() == "hello");
+}
+
 TEST_CASE("NullObject exposes Null type and inspect value", "[object]") {
     NullObject object {};
 
