@@ -5,6 +5,7 @@ build/
 build-xcode/
 cmake-build-*/
 out/
+patches/
 
 # CMake generated files
 CMakeCache.txt
