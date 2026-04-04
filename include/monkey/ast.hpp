@@ -310,3 +310,149 @@ struct ReturnStatement : Statement {
         return out;
     }
 };
+
+[[nodiscard]] inline auto clone_expression(const Expression& expression) -> std::unique_ptr<Expression>;
+[[nodiscard]] inline auto clone_statement(const Statement& statement) -> std::unique_ptr<Statement>;
+
+[[nodiscard]] inline auto clone_block_statement(const BlockStatement& block) -> std::unique_ptr<BlockStatement> {
+    auto clone = std::make_unique<BlockStatement>();
+    clone->token = block.token;
+
+    for (const auto& statement : block.statements) {
+        if (statement != nullptr) {
+            clone->statements.push_back(clone_statement(*statement));
+        }
+    }
+
+    return clone;
+}
+
+[[nodiscard]] inline auto clone_expression(const Expression& expression) -> std::unique_ptr<Expression> {
+    if (const auto* identifier = dynamic_cast<const Identifier*>(&expression); identifier != nullptr) {
+        auto clone = std::make_unique<Identifier>();
+        clone->token = identifier->token;
+        clone->value = identifier->value;
+        return clone;
+    }
+
+    if (const auto* literal = dynamic_cast<const IntegerLiteral*>(&expression); literal != nullptr) {
+        auto clone = std::make_unique<IntegerLiteral>();
+        clone->token = literal->token;
+        clone->value = literal->value;
+        return clone;
+    }
+
+    if (const auto* boolean = dynamic_cast<const Boolean*>(&expression); boolean != nullptr) {
+        auto clone = std::make_unique<Boolean>();
+        clone->token = boolean->token;
+        clone->value = boolean->value;
+        return clone;
+    }
+
+    if (const auto* prefix = dynamic_cast<const PrefixExpression*>(&expression); prefix != nullptr) {
+        auto clone = std::make_unique<PrefixExpression>();
+        clone->token = prefix->token;
+        clone->op = prefix->op;
+        if (prefix->right != nullptr) {
+            clone->right = clone_expression(*prefix->right);
+        }
+        return clone;
+    }
+
+    if (const auto* infix = dynamic_cast<const InfixExpression*>(&expression); infix != nullptr) {
+        auto clone = std::make_unique<InfixExpression>();
+        clone->token = infix->token;
+        clone->op = infix->op;
+        if (infix->left != nullptr) {
+            clone->left = clone_expression(*infix->left);
+        }
+        if (infix->right != nullptr) {
+            clone->right = clone_expression(*infix->right);
+        }
+        return clone;
+    }
+
+    if (const auto* if_expression = dynamic_cast<const IfExpression*>(&expression); if_expression != nullptr) {
+        auto clone = std::make_unique<IfExpression>();
+        clone->token = if_expression->token;
+        if (if_expression->condition != nullptr) {
+            clone->condition = clone_expression(*if_expression->condition);
+        }
+        if (if_expression->consequence != nullptr) {
+            clone->consequence = clone_block_statement(*if_expression->consequence);
+        }
+        if (if_expression->alternative != nullptr) {
+            clone->alternative = clone_block_statement(*if_expression->alternative);
+        }
+        return clone;
+    }
+
+    if (const auto* function = dynamic_cast<const FunctionLiteral*>(&expression); function != nullptr) {
+        auto clone = std::make_unique<FunctionLiteral>();
+        clone->token = function->token;
+        for (const auto& parameter : function->parameters) {
+            if (parameter != nullptr) {
+                auto parameter_clone = std::make_unique<Identifier>();
+                parameter_clone->token = parameter->token;
+                parameter_clone->value = parameter->value;
+                clone->parameters.push_back(std::move(parameter_clone));
+            }
+        }
+        if (function->body != nullptr) {
+            clone->body = clone_block_statement(*function->body);
+        }
+        return clone;
+    }
+
+    if (const auto* call = dynamic_cast<const CallExpression*>(&expression); call != nullptr) {
+        auto clone = std::make_unique<CallExpression>();
+        clone->token = call->token;
+        if (call->function != nullptr) {
+            clone->function = clone_expression(*call->function);
+        }
+        for (const auto& argument : call->arguments) {
+            if (argument != nullptr) {
+                clone->arguments.push_back(clone_expression(*argument));
+            }
+        }
+        return clone;
+    }
+
+    return nullptr;
+}
+
+[[nodiscard]] inline auto clone_statement(const Statement& statement) -> std::unique_ptr<Statement> {
+    if (const auto* expression_statement = dynamic_cast<const ExpressionStatement*>(&statement); expression_statement != nullptr) {
+        auto clone = std::make_unique<ExpressionStatement>();
+        clone->token = expression_statement->token;
+        if (expression_statement->expression != nullptr) {
+            clone->expression = clone_expression(*expression_statement->expression);
+        }
+        return clone;
+    }
+
+    if (const auto* let_statement = dynamic_cast<const LetStatement*>(&statement); let_statement != nullptr) {
+        auto clone = std::make_unique<LetStatement>();
+        clone->token = let_statement->token;
+        clone->name = let_statement->name;
+        if (let_statement->value != nullptr) {
+            clone->value = clone_expression(*let_statement->value);
+        }
+        return clone;
+    }
+
+    if (const auto* return_statement = dynamic_cast<const ReturnStatement*>(&statement); return_statement != nullptr) {
+        auto clone = std::make_unique<ReturnStatement>();
+        clone->token = return_statement->token;
+        if (return_statement->return_value != nullptr) {
+            clone->return_value = clone_expression(*return_statement->return_value);
+        }
+        return clone;
+    }
+
+    if (const auto* block_statement = dynamic_cast<const BlockStatement*>(&statement); block_statement != nullptr) {
+        return clone_block_statement(*block_statement);
+    }
+
+    return nullptr;
+}

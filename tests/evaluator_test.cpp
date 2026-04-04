@@ -243,3 +243,39 @@ TEST_CASE("TestLetStatements", "[evaluator]") {
         test_integer_object(evaluated.get(), test_case.expected);
     }
 }
+
+TEST_CASE("TestFunctionObject", "[evaluator]") {
+    constexpr auto input = "fn(x) { x + 2; };";
+
+    const auto evaluated = test_eval(input);
+    REQUIRE(evaluated != nullptr);
+
+    const auto* function = dynamic_cast<const FunctionObject*>(evaluated.get());
+    REQUIRE(function != nullptr);
+    REQUIRE(function->parameters.size() == 1);
+    REQUIRE(function->parameters[0] != nullptr);
+    REQUIRE(function->parameters[0]->as_string() == "x");
+    REQUIRE(function->body != nullptr);
+    REQUIRE(function->body->as_string() == "(x + 2)");
+}
+
+TEST_CASE("TestFunctionApplication", "[evaluator]") {
+    struct TestCase {
+        std::string_view input;
+        std::int64_t expected;
+    };
+
+    constexpr TestCase test_cases[] = {
+        {"let identity = fn(x) { x; }; identity(5);", 5},
+        {"let identity = fn(x) { return x; }; identity(5);", 5},
+        {"let doubleFn = fn(x) { x * 2; }; doubleFn(5);", 10},
+        {"let add = fn(x, y) { x + y; }; add(5, 5);", 10},
+        {"let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20},
+        {"fn(x) { x; }(5)", 5},
+    };
+
+    for (const auto& test_case : test_cases) {
+        const auto evaluated = test_eval(test_case.input);
+        test_integer_object(evaluated.get(), test_case.expected);
+    }
+}

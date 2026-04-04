@@ -235,6 +235,49 @@ namespace {
     );
 }
 
+[[nodiscard]] auto apply_function(
+    const std::shared_ptr<Object>& function,
+    const std::vector<std::shared_ptr<Object>>& arguments
+) -> std::shared_ptr<Object> {
+    const auto* function_object = dynamic_cast<const FunctionObject*>(function.get());
+    if (function_object == nullptr) {
+        return new_error("not a function: " + std::string(to_string(function->type())));
+    }
+
+    auto extended_environment = new_enclosed_environment(function_object->env);
+    for (std::size_t index = 0; index < function_object->parameters.size(); ++index) {
+        if (function_object->parameters[index] != nullptr && index < arguments.size()) {
+            extended_environment->set(function_object->parameters[index]->value, arguments[index]);
+        }
+    }
+
+    auto evaluated = eval_node(function_object->body.get(), *extended_environment);
+    if (const auto* return_value = dynamic_cast<const ReturnValueObject*>(evaluated.get()); return_value != nullptr) {
+        return return_value->value;
+    }
+
+    return evaluated;
+}
+
+[[nodiscard]] auto eval_expressions(
+    const std::vector<std::unique_ptr<Expression>>& expressions,
+    Environment& environment
+) -> std::vector<std::shared_ptr<Object>> {
+    std::vector<std::shared_ptr<Object>> result;
+    result.reserve(expressions.size());
+
+    for (const auto& expression : expressions) {
+        auto evaluated = eval_node(expression.get(), environment);
+        if (is_error(evaluated)) {
+            return {evaluated};
+        }
+
+        result.push_back(std::move(evaluated));
+    }
+
+    return result;
+}
+
 }  // namespace
 
 auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Object> {
@@ -293,6 +336,20 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
         return eval_infix_expression(infix_expression->op, left, right);
     }
 
+    if (const auto* call_expression = dynamic_cast<const CallExpression*>(node); call_expression != nullptr) {
+        const auto function = eval_node(call_expression->function.get(), environment);
+        if (is_error(function)) {
+            return function;
+        }
+
+        const auto arguments = eval_expressions(call_expression->arguments, environment);
+        if (arguments.size() == 1 && is_error(arguments[0])) {
+            return arguments[0];
+        }
+
+        return apply_function(function, arguments);
+    }
+
     if (const auto* identifier = dynamic_cast<const Identifier*>(node); identifier != nullptr) {
         const auto value = environment.get(identifier->value);
         if (value != nullptr) {
@@ -314,6 +371,26 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
 
     if (const auto* if_expression = dynamic_cast<const IfExpression*>(node); if_expression != nullptr) {
         return eval_if_expression(if_expression, environment);
+    }
+
+    if (const auto* function_literal = dynamic_cast<const FunctionLiteral*>(node); function_literal != nullptr) {
+        auto function = std::make_shared<FunctionObject>();
+        function->env = std::make_shared<Environment>(environment);
+
+        for (const auto& parameter : function_literal->parameters) {
+            if (parameter != nullptr) {
+                auto parameter_clone = std::make_unique<Identifier>();
+                parameter_clone->token = parameter->token;
+                parameter_clone->value = parameter->value;
+                function->parameters.push_back(std::move(parameter_clone));
+            }
+        }
+
+        if (function_literal->body != nullptr) {
+            function->body = clone_block_statement(*function_literal->body);
+        }
+
+        return function;
     }
 
     return nullObject();

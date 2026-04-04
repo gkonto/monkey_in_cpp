@@ -3,6 +3,11 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
+
+#include "monkey/ast.hpp"
+
+class Environment;
 
 enum class ObjectType {
     Integer,
@@ -10,6 +15,7 @@ enum class ObjectType {
     Null,
     ReturnValue,
     Error,
+    Function,
 };
 
 [[nodiscard]] inline auto to_string(ObjectType type) -> std::string {
@@ -24,6 +30,8 @@ enum class ObjectType {
             return "ReturnValue";
         case ObjectType::Error:
             return "Error";
+        case ObjectType::Function:
+            return "Function";
     }
 
     return "Unknown";
@@ -95,5 +103,38 @@ struct ErrorObject : Object {
 
     [[nodiscard]] auto inspect() const -> std::string override {
         return "ERROR: " + message;
+    }
+};
+
+struct FunctionObject : Object {
+    std::vector<std::unique_ptr<Identifier>> parameters;
+    std::unique_ptr<BlockStatement> body;
+    std::shared_ptr<Environment> env;
+
+    [[nodiscard]] auto type() const -> ObjectType override {
+        return ObjectType::Function;
+    }
+
+    [[nodiscard]] auto inspect() const -> std::string override {
+        std::string out = "fn(";
+
+        for (std::size_t index = 0; index < parameters.size(); ++index) {
+            if (index > 0) {
+                out += ", ";
+            }
+
+            if (parameters[index] != nullptr) {
+                out += parameters[index]->as_string();
+            }
+        }
+
+        out += ") {\n";
+
+        if (body != nullptr) {
+            out += body->as_string();
+        }
+
+        out += "\n}";
+        return out;
     }
 };
