@@ -601,6 +601,11 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
         }
 
         environment.set(statement->name.literal, value);
+
+        if (const auto* function = dynamic_cast<const FunctionObject*>(value.get()); function != nullptr) {
+            function->env->set(statement->name.literal, value);
+        }
+
         return nullObject();
     }
 

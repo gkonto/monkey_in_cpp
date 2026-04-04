@@ -67,12 +67,28 @@ add_executable(monkey_smoke_tests
     tests/parser_test.cpp
 )
 
+add_executable(monkey_performance_tests
+    tests/performance_test.cpp
+)
+
 target_include_directories(monkey_smoke_tests
     PRIVATE
         include
 )
 
 target_link_libraries(monkey_smoke_tests
+    PRIVATE
+        monkey_lib
+        project_warnings
+        Catch2::Catch2WithMain
+)
+
+target_include_directories(monkey_performance_tests
+    PRIVATE
+        include
+)
+
+target_link_libraries(monkey_performance_tests
     PRIVATE
         monkey_lib
         project_warnings
