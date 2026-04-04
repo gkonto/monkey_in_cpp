@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string_view>
+#include <variant>
 
 #include "monkey/evaluator.hpp"
 #include "monkey/lexer.hpp"
@@ -133,5 +134,38 @@ TEST_CASE("TestBangOperator", "[evaluator]") {
     for (const auto& test_case : test_cases) {
         const auto evaluated = test_eval(test_case.input);
         test_boolean_object(evaluated.get(), test_case.expected);
+    }
+}
+
+TEST_CASE("TestIfElseExpressions", "[evaluator]") {
+    using Expected = std::variant<std::int64_t, std::monostate>;
+
+    struct TestCase {
+        std::string_view input;
+        Expected expected;
+    };
+
+    constexpr TestCase test_cases[] = {
+        {"if (true) { 10 }", std::int64_t {10}},
+        {"if (false) { 10 }", std::monostate {}},
+        {"if (1) { 10 }", std::int64_t {10}},
+        {"if (1 < 2) { 10 }", std::int64_t {10}},
+        {"if (1 > 2) { 10 }", std::monostate {}},
+        {"if (1 > 2) { 10 } else { 20 }", std::int64_t {20}},
+        {"if (1 < 2) { 10 } else { 20 }", std::int64_t {10}},
+    };
+
+    for (const auto& test_case : test_cases) {
+        const auto evaluated = test_eval(test_case.input);
+
+        std::visit([&](const auto& expected) {
+            using ExpectedType = std::decay_t<decltype(expected)>;
+
+            if constexpr (std::is_same_v<ExpectedType, std::int64_t>) {
+                test_integer_object(evaluated.get(), expected);
+            } else {
+                test_null_object(evaluated.get());
+            }
+        }, test_case.expected);
     }
 }
