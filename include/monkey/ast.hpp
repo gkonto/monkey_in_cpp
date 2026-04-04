@@ -196,6 +196,39 @@ struct FunctionLiteral : Expression {
     }
 };
 
+struct CallExpression : Expression {
+    Token token;
+    std::unique_ptr<Expression> function;
+    std::vector<std::unique_ptr<Expression>> arguments;
+
+    [[nodiscard]] auto token_literal() const -> std::string override {
+        return token.literal;
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        std::string out {};
+
+        if (function != nullptr) {
+            out += function->as_string();
+        }
+
+        out += "(";
+
+        for (std::size_t index = 0; index < arguments.size(); ++index) {
+            if (index > 0) {
+                out += ", ";
+            }
+
+            if (arguments[index] != nullptr) {
+                out += arguments[index]->as_string();
+            }
+        }
+
+        out += ")";
+        return out;
+    }
+};
+
 struct ExpressionStatement : Statement {
     Token token;
     std::unique_ptr<Expression> expression;

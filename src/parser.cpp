@@ -205,6 +205,14 @@ auto Parser::parse_function_literal() -> std::unique_ptr<FunctionLiteral> {
     return literal;
 }
 
+auto Parser::parse_call_expression(std::unique_ptr<Expression> function) -> std::unique_ptr<Expression> {
+    auto expression = std::make_unique<CallExpression>();
+    expression->token = current_token_;
+    expression->function = std::move(function);
+    expression->arguments = parse_call_arguments();
+    return expression;
+}
+
 auto Parser::parse_infix_expression(std::unique_ptr<Expression> left) -> std::unique_ptr<Expression> {
     auto expression = std::make_unique<InfixExpression>();
     expression->token = current_token_;
@@ -264,6 +272,30 @@ auto Parser::parse_function_parameters() -> std::vector<std::unique_ptr<Identifi
     }
 
     return identifiers;
+}
+
+auto Parser::parse_call_arguments() -> std::vector<std::unique_ptr<Expression>> {
+    std::vector<std::unique_ptr<Expression>> arguments;
+
+    if (peek_token_is(TokenType::RightParen)) {
+        next_token();
+        return arguments;
+    }
+
+    next_token();
+    arguments.push_back(parse_expression(Precedence::Lowest));
+
+    while (peek_token_is(TokenType::Comma)) {
+        next_token();
+        next_token();
+        arguments.push_back(parse_expression(Precedence::Lowest));
+    }
+
+    if (!expect_peek(TokenType::RightParen)) {
+        return {};
+    }
+
+    return arguments;
 }
 
 auto Parser::parse_let_statement() -> std::unique_ptr<LetStatement> {
@@ -348,6 +380,10 @@ auto Parser::prefix_parse_fn() -> ParsePrefixFn {
 
 auto Parser::infix_parse_fn() -> ParseInfixFn {
     switch (peek_token_.type) {
+        case TokenType::LeftParen:
+            return [this](std::unique_ptr<Expression> left) {
+                return parse_call_expression(std::move(left));
+            };
         case TokenType::Plus:
         case TokenType::Minus:
         case TokenType::Slash:
@@ -374,6 +410,8 @@ auto Parser::peek_precedence() const -> Precedence {
 
 auto Parser::token_precedence(TokenType type) -> Precedence {
     switch (type) {
+        case TokenType::LeftParen:
+            return Precedence::Call;
         case TokenType::Equal:
         case TokenType::NotEqual:
             return Precedence::Equals;

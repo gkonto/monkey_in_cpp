@@ -262,6 +262,9 @@ TEST_CASE("TestOperatorPrecedenceParsing", "[parser]") {
         {"false", "false"},
         {"3 > 5 == false", "((3 > 5) == false)"},
         {"3 < 5 == true", "((3 < 5) == true)"},
+        {"a + add(b * c) + d", "((a + add((b * c))) + d)"},
+        {"add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))", "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))"},
+        {"add(a + b + c * d / f + g)", "add((((a + b) + ((c * d) / f)) + g))"},
     };
 
     for (const auto& test_case : test_cases) {
@@ -379,4 +382,39 @@ TEST_CASE("TestFunctionParameterParsing", "[parser]") {
             test_literal_expression(function->parameters[index].get(), test_case.expected_parameters[index]);
         }
     }
+}
+
+TEST_CASE("TestCallExpressionParsing", "[parser]") {
+    constexpr auto input = "add(1, 2 * 3, 4 + 5);";
+
+    auto lexer = Lexer {input};
+    auto parser = Parser {lexer};
+    const auto program = parser.parse_program();
+
+    check_parser_errors(parser);
+    REQUIRE(program.statements.size() == 1);
+
+    const auto* statement = dynamic_cast<const ExpressionStatement*>(program.statements[0].get());
+    REQUIRE(statement != nullptr);
+    REQUIRE(statement->expression != nullptr);
+
+    const auto* call = dynamic_cast<const CallExpression*>(statement->expression.get());
+    REQUIRE(call != nullptr);
+    REQUIRE(call->function != nullptr);
+    test_literal_expression(call->function.get(), std::string_view {"add"});
+
+    REQUIRE(call->arguments.size() == 3);
+    test_literal_expression(call->arguments[0].get(), std::int64_t {1});
+
+    const auto* second_argument = dynamic_cast<const InfixExpression*>(call->arguments[1].get());
+    REQUIRE(second_argument != nullptr);
+    REQUIRE(second_argument->op == "*");
+    test_literal_expression(second_argument->left.get(), std::int64_t {2});
+    test_literal_expression(second_argument->right.get(), std::int64_t {3});
+
+    const auto* third_argument = dynamic_cast<const InfixExpression*>(call->arguments[2].get());
+    REQUIRE(third_argument != nullptr);
+    REQUIRE(third_argument->op == "+");
+    test_literal_expression(third_argument->left.get(), std::int64_t {4});
+    test_literal_expression(third_argument->right.get(), std::int64_t {5});
 }
