@@ -176,7 +176,7 @@ auto Parser::parse_hash_literal() -> std::unique_ptr<HashLiteral> {
 auto Parser::parse_prefix_expression() -> std::unique_ptr<PrefixExpression> {
     auto expression = std::make_unique<PrefixExpression>();
     expression->token = current_token_;
-    expression->op = current_token_.literal;
+    expression->op = eval_operator_from_token_type(current_token_.type);
 
     next_token();
     expression->right = parse_expression(Precedence::Prefix);
@@ -273,7 +273,7 @@ auto Parser::parse_index_expression(std::unique_ptr<Expression> left) -> std::un
 auto Parser::parse_infix_expression(std::unique_ptr<Expression> left) -> std::unique_ptr<Expression> {
     auto expression = std::make_unique<InfixExpression>();
     expression->token = current_token_;
-    expression->op = current_token_.literal;
+    expression->op = eval_operator_from_token_type(current_token_.type);
     expression->left = std::move(left);
 
     const auto precedence = current_precedence();

@@ -7,6 +7,71 @@
 
 #include "monkey/token.hpp"
 
+enum class EvalOperator {
+    Invalid,
+    Bang,
+    Minus,
+    Plus,
+    Multiply,
+    Divide,
+    LessThan,
+    GreaterThan,
+    Equal,
+    NotEqual,
+};
+
+[[nodiscard]] inline auto to_string(EvalOperator op) -> std::string_view {
+    switch (op) {
+        case EvalOperator::Bang:
+            return "!";
+        case EvalOperator::Minus:
+            return "-";
+        case EvalOperator::Plus:
+            return "+";
+        case EvalOperator::Multiply:
+            return "*";
+        case EvalOperator::Divide:
+            return "/";
+        case EvalOperator::LessThan:
+            return "<";
+        case EvalOperator::GreaterThan:
+            return ">";
+        case EvalOperator::Equal:
+            return "==";
+        case EvalOperator::NotEqual:
+            return "!=";
+        case EvalOperator::Invalid:
+            return "<invalid>";
+    }
+
+    return "<invalid>";
+}
+
+[[nodiscard]] inline auto eval_operator_from_token_type(TokenType type) -> EvalOperator {
+    switch (type) {
+        case TokenType::Bang:
+            return EvalOperator::Bang;
+        case TokenType::Minus:
+            return EvalOperator::Minus;
+        case TokenType::Plus:
+            return EvalOperator::Plus;
+        case TokenType::Asterisk:
+            return EvalOperator::Multiply;
+        case TokenType::Slash:
+            return EvalOperator::Divide;
+        case TokenType::LessThan:
+            return EvalOperator::LessThan;
+        case TokenType::GreaterThan:
+            return EvalOperator::GreaterThan;
+        case TokenType::Equal:
+            return EvalOperator::Equal;
+        case TokenType::NotEqual:
+            return EvalOperator::NotEqual;
+        default:
+            return EvalOperator::Invalid;
+    }
+}
+
 struct Node {
     virtual ~Node() = default;
 
@@ -134,7 +199,7 @@ struct HashLiteral : Expression {
 
 struct PrefixExpression : Expression {
     Token token;
-    std::string op;
+    EvalOperator op {EvalOperator::Invalid};
     std::unique_ptr<Expression> right;
 
     [[nodiscard]] auto token_literal() const -> std::string override {
@@ -142,7 +207,7 @@ struct PrefixExpression : Expression {
     }
 
     [[nodiscard]] auto as_string() const -> std::string override {
-        std::string out = "(" + op;
+        std::string out = "(" + std::string(to_string(op));
 
         if (right != nullptr) {
             out += right->as_string();
@@ -156,7 +221,7 @@ struct PrefixExpression : Expression {
 struct InfixExpression : Expression {
     Token token;
     std::unique_ptr<Expression> left;
-    std::string op;
+    EvalOperator op {EvalOperator::Invalid};
     std::unique_ptr<Expression> right;
 
     [[nodiscard]] auto token_literal() const -> std::string override {
@@ -170,7 +235,7 @@ struct InfixExpression : Expression {
             out += left->as_string();
         }
 
-        out += " " + op + " ";
+        out += " " + std::string(to_string(op)) + " ";
 
         if (right != nullptr) {
             out += right->as_string();

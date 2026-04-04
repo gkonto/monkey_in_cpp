@@ -290,86 +290,72 @@ namespace {
 }
 
 [[nodiscard]] auto eval_prefix_expression(
-    const std::string& op,
+    EvalOperator op,
     const std::shared_ptr<Object>& right
 ) -> std::shared_ptr<Object> {
-    if (op == "!") {
-        return eval_bang_operator_expression(right);
+    switch (op) {
+        case EvalOperator::Bang:
+            return eval_bang_operator_expression(right);
+        case EvalOperator::Minus:
+            return eval_minus_prefix_operator_expression(right);
+        default:
+            return new_error(
+                "unknown operator: " + std::string(to_string(op)) + std::string(to_string(right->type()))
+            );
     }
-
-    if (op == "-") {
-        return eval_minus_prefix_operator_expression(right);
-    }
-
-    return new_error("unknown operator: " + op + std::string(to_string(right->type())));
 }
 
 [[nodiscard]] auto eval_integer_infix_expression(
-    const std::string& op,
+    EvalOperator op,
     const Object* left,
     const Object* right
 ) -> std::shared_ptr<Object> {
-    if (op == "+") {
-        return new_integer_object(left->integer_value() + right->integer_value());
+    switch (op) {
+        case EvalOperator::Plus:
+            return new_integer_object(left->integer_value() + right->integer_value());
+        case EvalOperator::Minus:
+            return new_integer_object(left->integer_value() - right->integer_value());
+        case EvalOperator::Multiply:
+            return new_integer_object(left->integer_value() * right->integer_value());
+        case EvalOperator::Divide:
+            return new_integer_object(left->integer_value() / right->integer_value());
+        case EvalOperator::LessThan:
+            return nativeBoolToBooleanObject(left->integer_value() < right->integer_value());
+        case EvalOperator::GreaterThan:
+            return nativeBoolToBooleanObject(left->integer_value() > right->integer_value());
+        case EvalOperator::Equal:
+            return nativeBoolToBooleanObject(left->integer_value() == right->integer_value());
+        case EvalOperator::NotEqual:
+            return nativeBoolToBooleanObject(left->integer_value() != right->integer_value());
+        default:
+            return new_error(
+                "unknown operator: " +
+                std::string(to_string(left->type())) + " " +
+                std::string(to_string(op)) + " " +
+                std::string(to_string(right->type()))
+            );
     }
-
-    if (op == "-") {
-        return new_integer_object(left->integer_value() - right->integer_value());
-    }
-
-    if (op == "*") {
-        return new_integer_object(left->integer_value() * right->integer_value());
-    }
-
-    if (op == "/") {
-        return new_integer_object(left->integer_value() / right->integer_value());
-    }
-
-    if (op == "<") {
-        return nativeBoolToBooleanObject(left->integer_value() < right->integer_value());
-    }
-
-    if (op == ">") {
-        return nativeBoolToBooleanObject(left->integer_value() > right->integer_value());
-    }
-
-    if (op == "==") {
-        return nativeBoolToBooleanObject(left->integer_value() == right->integer_value());
-    }
-
-    if (op == "!=") {
-        return nativeBoolToBooleanObject(left->integer_value() != right->integer_value());
-    }
-
-    return new_error(
-        "unknown operator: " +
-        std::string(to_string(left->type())) + " " +
-        op + " " +
-        std::string(to_string(right->type()))
-    );
 }
 
 [[nodiscard]] auto eval_string_infix_expression(
-    const std::string& op,
+    EvalOperator op,
     const Object* left,
     const Object* right
 ) -> std::shared_ptr<Object> {
-    if (op == "+") {
-        return std::make_shared<Object>(
-            Object::make_string(left->string_value() + right->string_value())
-        );
+    if (op == EvalOperator::Plus) {
+        return std::make_shared<Object>(Object::make_string(left->string_value() + right->string_value()));
     }
 
     return new_error(
         "unknown operator: " +
         std::string(to_string(left->type())) + " " +
-        op + " " +
+        std::string(to_string(op)) + " " +
         std::string(to_string(right->type()))
     );
 }
 
 [[nodiscard]] auto eval_infix_expression(
-    const std::string& op,
+    EvalOperator op,
     const std::shared_ptr<Object>& left,
     const std::shared_ptr<Object>& right
 ) -> std::shared_ptr<Object> {
@@ -381,11 +367,11 @@ namespace {
         return eval_string_infix_expression(op, left.get(), right.get());
     }
 
-    if (op == "==") {
+    if (op == EvalOperator::Equal) {
         return nativeBoolToBooleanObject(left == right);
     }
 
-    if (op == "!=") {
+    if (op == EvalOperator::NotEqual) {
         return nativeBoolToBooleanObject(left != right);
     }
 
@@ -393,7 +379,7 @@ namespace {
         return new_error(
             "type mismatch: " +
             std::string(to_string(left->type())) + " " +
-            op + " " +
+            std::string(to_string(op)) + " " +
             std::string(to_string(right->type()))
         );
     }
@@ -401,7 +387,7 @@ namespace {
     return new_error(
         "unknown operator: " +
         std::string(to_string(left->type())) + " " +
-        op + " " +
+        std::string(to_string(op)) + " " +
         std::string(to_string(right->type()))
     );
 }

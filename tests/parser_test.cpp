@@ -223,13 +223,13 @@ TEST_CASE("TestParsingArrayLiterals", "[parser]") {
     const auto* second = dynamic_cast<const InfixExpression*>(array->elements[1].get());
     REQUIRE(second != nullptr);
     test_literal_expression(second->left.get(), std::int64_t {2});
-    REQUIRE(second->op == "*");
+    REQUIRE(second->op == EvalOperator::Multiply);
     test_literal_expression(second->right.get(), std::int64_t {2});
 
     const auto* third = dynamic_cast<const InfixExpression*>(array->elements[2].get());
     REQUIRE(third != nullptr);
     test_literal_expression(third->left.get(), std::int64_t {3});
-    REQUIRE(third->op == "+");
+    REQUIRE(third->op == EvalOperator::Plus);
     test_literal_expression(third->right.get(), std::int64_t {3});
 }
 
@@ -300,21 +300,21 @@ TEST_CASE("TestParsingHashLiteralsWithExpressions", "[parser]") {
     const auto* one_value = dynamic_cast<const InfixExpression*>(hash->pairs[0].second.get());
     REQUIRE(one_value != nullptr);
     test_integer_literal(one_value->left.get(), 0);
-    REQUIRE(one_value->op == "+");
+    REQUIRE(one_value->op == EvalOperator::Plus);
     test_integer_literal(one_value->right.get(), 1);
 
     test_string_literal(hash->pairs[1].first.get(), "two");
     const auto* two_value = dynamic_cast<const InfixExpression*>(hash->pairs[1].second.get());
     REQUIRE(two_value != nullptr);
     test_integer_literal(two_value->left.get(), 10);
-    REQUIRE(two_value->op == "-");
+    REQUIRE(two_value->op == EvalOperator::Minus);
     test_integer_literal(two_value->right.get(), 8);
 
     test_string_literal(hash->pairs[2].first.get(), "three");
     const auto* three_value = dynamic_cast<const InfixExpression*>(hash->pairs[2].second.get());
     REQUIRE(three_value != nullptr);
     test_integer_literal(three_value->left.get(), 15);
-    REQUIRE(three_value->op == "/");
+    REQUIRE(three_value->op == EvalOperator::Divide);
     test_integer_literal(three_value->right.get(), 5);
 }
 
@@ -341,7 +341,7 @@ TEST_CASE("TestParsingIndexExpressions", "[parser]") {
 
     const auto* index = dynamic_cast<const InfixExpression*>(index_expression->index.get());
     REQUIRE(index != nullptr);
-    REQUIRE(index->op == "+");
+    REQUIRE(index->op == EvalOperator::Plus);
     test_literal_expression(index->left.get(), std::int64_t {1});
     test_literal_expression(index->right.get(), std::int64_t {1});
 }
@@ -376,7 +376,7 @@ TEST_CASE("TestParsingPrefix", "[parser]") {
 
         const auto* prefix_expression = dynamic_cast<const PrefixExpression*>(statement->expression.get());
         REQUIRE(prefix_expression != nullptr);
-        REQUIRE(prefix_expression->op == test_case.op);
+        REQUIRE(std::string(to_string(prefix_expression->op)) == test_case.op);
         REQUIRE(prefix_expression->right != nullptr);
 
         test_literal_expression(prefix_expression->right.get(), test_case.value);
@@ -422,7 +422,7 @@ TEST_CASE("TestParsingInfixExpressions", "[parser]") {
         const auto* infix_expression = dynamic_cast<const InfixExpression*>(statement->expression.get());
         REQUIRE(infix_expression != nullptr);
         REQUIRE(infix_expression->left != nullptr);
-        REQUIRE(infix_expression->op == test_case.op);
+        REQUIRE(std::string(to_string(infix_expression->op)) == test_case.op);
         REQUIRE(infix_expression->right != nullptr);
 
         test_literal_expression(infix_expression->left.get(), test_case.left_value);
@@ -494,7 +494,7 @@ TEST_CASE("TestIfExpression", "[parser]") {
 
     const auto* condition = dynamic_cast<const InfixExpression*>(if_expression->condition.get());
     REQUIRE(condition != nullptr);
-    REQUIRE(condition->op == "<");
+    REQUIRE(condition->op == EvalOperator::LessThan);
     REQUIRE(condition->left != nullptr);
     REQUIRE(condition->right != nullptr);
     test_literal_expression(condition->left.get(), std::string_view {"x"});
@@ -542,7 +542,7 @@ TEST_CASE("TestFunctionLiteral", "[parser]") {
 
     const auto* body_expression = dynamic_cast<const InfixExpression*>(body_statement->expression.get());
     REQUIRE(body_expression != nullptr);
-    REQUIRE(body_expression->op == "+");
+    REQUIRE(body_expression->op == EvalOperator::Plus);
     test_literal_expression(body_expression->left.get(), std::string_view {"x"});
     test_literal_expression(body_expression->right.get(), std::string_view {"y"});
 }
@@ -605,13 +605,13 @@ TEST_CASE("TestCallExpressionParsing", "[parser]") {
 
     const auto* second_argument = dynamic_cast<const InfixExpression*>(call->arguments[1].get());
     REQUIRE(second_argument != nullptr);
-    REQUIRE(second_argument->op == "*");
+    REQUIRE(second_argument->op == EvalOperator::Multiply);
     test_literal_expression(second_argument->left.get(), std::int64_t {2});
     test_literal_expression(second_argument->right.get(), std::int64_t {3});
 
     const auto* third_argument = dynamic_cast<const InfixExpression*>(call->arguments[2].get());
     REQUIRE(third_argument != nullptr);
-    REQUIRE(third_argument->op == "+");
+    REQUIRE(third_argument->op == EvalOperator::Plus);
     test_literal_expression(third_argument->left.get(), std::int64_t {4});
     test_literal_expression(third_argument->right.get(), std::int64_t {5});
 }
