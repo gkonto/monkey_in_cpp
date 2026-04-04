@@ -153,6 +153,40 @@ auto Parser::parse_grouped_expression() -> std::unique_ptr<Expression> {
     return expression;
 }
 
+auto Parser::parse_if_expression() -> std::unique_ptr<IfExpression> {
+    auto expression = std::make_unique<IfExpression>();
+    expression->token = current_token_;
+
+    if (!expect_peek(TokenType::LeftParen)) {
+        return nullptr;
+    }
+
+    next_token();
+    expression->condition = parse_expression(Precedence::Lowest);
+
+    if (!expect_peek(TokenType::RightParen)) {
+        return nullptr;
+    }
+
+    if (!expect_peek(TokenType::LeftBrace)) {
+        return nullptr;
+    }
+
+    expression->consequence = parse_block_statement();
+
+    if (peek_token_is(TokenType::Else)) {
+        next_token();
+
+        if (!expect_peek(TokenType::LeftBrace)) {
+            return nullptr;
+        }
+
+        expression->alternative = parse_block_statement();
+    }
+
+    return expression;
+}
+
 auto Parser::parse_infix_expression(std::unique_ptr<Expression> left) -> std::unique_ptr<Expression> {
     auto expression = std::make_unique<InfixExpression>();
     expression->token = current_token_;
@@ -163,6 +197,23 @@ auto Parser::parse_infix_expression(std::unique_ptr<Expression> left) -> std::un
     next_token();
     expression->right = parse_expression(precedence);
     return expression;
+}
+
+auto Parser::parse_block_statement() -> std::unique_ptr<BlockStatement> {
+    auto block = std::make_unique<BlockStatement>();
+    block->token = current_token_;
+
+    next_token();
+
+    while (!current_token_is(TokenType::RightBrace) && !current_token_is(TokenType::EndOfFile)) {
+        if (auto statement = parse_statement()) {
+            block->statements.push_back(std::move(statement));
+        }
+
+        next_token();
+    }
+
+    return block;
 }
 
 auto Parser::parse_let_statement() -> std::unique_ptr<LetStatement> {
@@ -221,6 +272,12 @@ auto Parser::prefix_parse_fn() -> ParsePrefixFn {
     if (current_token_is(TokenType::Bang) || current_token_is(TokenType::Minus)) {
         return [this]() {
             return parse_prefix_expression();
+        };
+    }
+
+    if (current_token_is(TokenType::If)) {
+        return [this]() {
+            return parse_if_expression();
         };
     }
 

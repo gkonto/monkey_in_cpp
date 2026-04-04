@@ -273,3 +273,41 @@ TEST_CASE("TestOperatorPrecedenceParsing", "[parser]") {
         REQUIRE(program.as_string() == test_case.expected);
     }
 }
+
+TEST_CASE("TestIfExpression", "[parser]") {
+    constexpr auto input = "if (x < y) { x }";
+
+    auto lexer = Lexer {input};
+    auto parser = Parser {lexer};
+    const auto program = parser.parse_program();
+
+    check_parser_errors(parser);
+    REQUIRE(program.statements.size() == 1);
+
+    const auto* statement = dynamic_cast<const ExpressionStatement*>(program.statements[0].get());
+    REQUIRE(statement != nullptr);
+    REQUIRE(statement->expression != nullptr);
+
+    const auto* if_expression = dynamic_cast<const IfExpression*>(statement->expression.get());
+    REQUIRE(if_expression != nullptr);
+    REQUIRE(if_expression->condition != nullptr);
+
+    const auto* condition = dynamic_cast<const InfixExpression*>(if_expression->condition.get());
+    REQUIRE(condition != nullptr);
+    REQUIRE(condition->op == "<");
+    REQUIRE(condition->left != nullptr);
+    REQUIRE(condition->right != nullptr);
+    test_literal_expression(condition->left.get(), std::string_view {"x"});
+    test_literal_expression(condition->right.get(), std::string_view {"y"});
+
+    REQUIRE(if_expression->consequence != nullptr);
+    REQUIRE(if_expression->consequence->statements.size() == 1);
+
+    const auto* consequence_statement =
+        dynamic_cast<const ExpressionStatement*>(if_expression->consequence->statements[0].get());
+    REQUIRE(consequence_statement != nullptr);
+    REQUIRE(consequence_statement->expression != nullptr);
+    test_literal_expression(consequence_statement->expression.get(), std::string_view {"x"});
+
+    REQUIRE(if_expression->alternative == nullptr);
+}

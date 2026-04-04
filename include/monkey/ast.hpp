@@ -110,6 +110,59 @@ struct InfixExpression : Expression {
     }
 };
 
+struct BlockStatement : Statement {
+    Token token;
+    std::vector<std::unique_ptr<Statement>> statements;
+
+    [[nodiscard]] auto token_literal() const -> std::string override {
+        return token.literal;
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        std::string out {};
+
+        for (const auto& statement : statements) {
+            if (statement != nullptr) {
+                out += statement->as_string();
+            }
+        }
+
+        return out;
+    }
+};
+
+struct IfExpression : Expression {
+    Token token;
+    std::unique_ptr<Expression> condition;
+    std::unique_ptr<BlockStatement> consequence;
+    std::unique_ptr<BlockStatement> alternative;
+
+    [[nodiscard]] auto token_literal() const -> std::string override {
+        return token.literal;
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        std::string out = "if";
+
+        if (condition != nullptr) {
+            out += condition->as_string();
+        }
+
+        out += " ";
+
+        if (consequence != nullptr) {
+            out += consequence->as_string();
+        }
+
+        if (alternative != nullptr) {
+            out += "else ";
+            out += alternative->as_string();
+        }
+
+        return out;
+    }
+};
+
 struct ExpressionStatement : Statement {
     Token token;
     std::unique_ptr<Expression> expression;
