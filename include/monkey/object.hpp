@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -17,6 +18,7 @@ enum class ObjectType {
     ReturnValue,
     Error,
     Function,
+    Builtin,
 };
 
 [[nodiscard]] inline auto to_string(ObjectType type) -> std::string {
@@ -35,6 +37,8 @@ enum class ObjectType {
             return "Error";
         case ObjectType::Function:
             return "Function";
+        case ObjectType::Builtin:
+            return "Builtin";
     }
 
     return "Unknown";
@@ -151,5 +155,21 @@ struct FunctionObject : Object {
 
         out += "\n}";
         return out;
+    }
+};
+
+struct BuiltinObject : Object {
+    using BuiltinFunction = std::function<std::shared_ptr<Object>(
+        const std::vector<std::shared_ptr<Object>>&
+    )>;
+
+    BuiltinFunction function;
+
+    [[nodiscard]] auto type() const -> ObjectType override {
+        return ObjectType::Builtin;
+    }
+
+    [[nodiscard]] auto inspect() const -> std::string override {
+        return "builtin function";
     }
 };

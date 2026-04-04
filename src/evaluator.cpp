@@ -2,6 +2,7 @@
 #include "monkey/environment.hpp"
 
 #include <memory>
+#include <string_view>
 
 [[nodiscard]] auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Object>;
 
@@ -32,6 +33,41 @@ namespace {
     auto error = std::make_shared<ErrorObject>();
     error->message = std::move(message);
     return error;
+}
+
+[[nodiscard]] auto builtin_len(const std::vector<std::shared_ptr<Object>>& arguments)
+    -> std::shared_ptr<Object> {
+    if (arguments.size() != 1) {
+        return new_error(
+            "wrong number of arguments. got=" + std::to_string(arguments.size()) + ", want=1"
+        );
+    }
+
+    const auto* string = dynamic_cast<const StringObject*>(arguments[0].get());
+    if (string == nullptr) {
+        return new_error(
+            "argument to `len` not supported, got " +
+            std::string(to_string(arguments[0]->type()))
+        );
+    }
+
+    auto result = std::make_shared<IntegerObject>();
+    result->value = static_cast<std::int64_t>(string->value.size());
+    return result;
+}
+
+[[nodiscard]] auto get_builtin_by_name(std::string_view name) -> std::shared_ptr<Object> {
+    if (name == "len") {
+        static auto builtin = [] {
+            auto object = std::make_shared<BuiltinObject>();
+            object->function = builtin_len;
+            return object;
+        }();
+
+        return builtin;
+    }
+
+    return nullptr;
 }
 
 [[nodiscard]] auto is_error(const std::shared_ptr<Object>& object) -> bool {
@@ -265,6 +301,10 @@ namespace {
     const std::shared_ptr<Object>& function,
     const std::vector<std::shared_ptr<Object>>& arguments
 ) -> std::shared_ptr<Object> {
+    if (const auto* builtin = dynamic_cast<const BuiltinObject*>(function.get()); builtin != nullptr) {
+        return builtin->function(arguments);
+    }
+
     const auto* function_object = dynamic_cast<const FunctionObject*>(function.get());
     if (function_object == nullptr) {
         return new_error("not a function: " + std::string(to_string(function->type())));
@@ -380,6 +420,11 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
         const auto value = environment.get(identifier->value);
         if (value != nullptr) {
             return value;
+        }
+
+        const auto builtin = get_builtin_by_name(identifier->value);
+        if (builtin != nullptr) {
+            return builtin;
         }
 
         return new_error("identifier not found: " + identifier->value);

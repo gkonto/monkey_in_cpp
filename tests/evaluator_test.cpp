@@ -313,3 +313,37 @@ TEST_CASE("TestStringConcatenation", "[evaluator]") {
     const auto evaluated = test_eval(input);
     test_string_object(evaluated.get(), "Hello World!");
 }
+
+TEST_CASE("TestBuiltinFunctions", "[evaluator]") {
+    using Expected = std::variant<std::int64_t, std::string_view>;
+
+    struct TestCase {
+        std::string_view input;
+        Expected expected;
+    };
+
+    constexpr TestCase test_cases[] = {
+        {"len(\"\")", std::int64_t {0}},
+        {"len(\"four\")", std::int64_t {4}},
+        {"len(\"hello world\")", std::int64_t {11}},
+        {"len(1)", std::string_view {"argument to `len` not supported, got Integer"}},
+        {
+            "len(\"one\", \"two\")",
+            std::string_view {"wrong number of arguments. got=2, want=1"},
+        },
+    };
+
+    for (const auto& test_case : test_cases) {
+        const auto evaluated = test_eval(test_case.input);
+
+        std::visit([&](const auto& expected) {
+            using ExpectedType = std::decay_t<decltype(expected)>;
+
+            if constexpr (std::is_same_v<ExpectedType, std::int64_t>) {
+                test_integer_object(evaluated.get(), expected);
+            } else {
+                test_error_object(evaluated.get(), expected);
+            }
+        }, test_case.expected);
+    }
+}
