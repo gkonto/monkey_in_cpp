@@ -90,7 +90,6 @@ TEST_CASE("Performance fibonacci(33)", "[performance]") {
 
     REQUIRE(evaluated != nullptr);
 
-    const auto* integer = dynamic_cast<const IntegerObject*>(evaluated.get());
-    REQUIRE(integer != nullptr);
-    REQUIRE(integer->value == 3524578);
+    REQUIRE(evaluated->type() == ObjectType::Integer);
+    REQUIRE(evaluated->integer_value() == 3524578);
 }

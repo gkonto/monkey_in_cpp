@@ -22,29 +22,20 @@ auto test_eval(std::string_view input) -> std::shared_ptr<Object> {
 
 void test_integer_object(const Object* object, std::int64_t expected_value) {
     REQUIRE(object != nullptr);
-
-    const auto* integer = dynamic_cast<const IntegerObject*>(object);
-    REQUIRE(integer != nullptr);
-    REQUIRE(integer->value == expected_value);
-    REQUIRE(integer->type() == ObjectType::Integer);
+    REQUIRE(object->type() == ObjectType::Integer);
+    REQUIRE(object->integer_value() == expected_value);
 }
 
 void test_boolean_object(const Object* object, bool expected_value) {
     REQUIRE(object != nullptr);
-
-    const auto* boolean = dynamic_cast<const BooleanObject*>(object);
-    REQUIRE(boolean != nullptr);
-    REQUIRE(boolean->value == expected_value);
-    REQUIRE(boolean->type() == ObjectType::Boolean);
+    REQUIRE(object->type() == ObjectType::Boolean);
+    REQUIRE(object->boolean_value() == expected_value);
 }
 
 void test_string_object(const Object* object, std::string_view expected_value) {
     REQUIRE(object != nullptr);
-
-    const auto* string = dynamic_cast<const StringObject*>(object);
-    REQUIRE(string != nullptr);
-    REQUIRE(string->value == expected_value);
-    REQUIRE(string->type() == ObjectType::String);
+    REQUIRE(object->type() == ObjectType::String);
+    REQUIRE(object->string_value() == expected_value);
 }
 
 void test_integer_array_object(
@@ -52,49 +43,28 @@ void test_integer_array_object(
     const std::vector<std::int64_t>& expected_elements
 ) {
     REQUIRE(object != nullptr);
-
-    const auto* array = dynamic_cast<const ArrayObject*>(object);
-    REQUIRE(array != nullptr);
-    REQUIRE(array->type() == ObjectType::Array);
-    REQUIRE(array->elements.size() == expected_elements.size());
+    REQUIRE(object->type() == ObjectType::Array);
+    REQUIRE(object->array_elements().size() == expected_elements.size());
 
     for (std::size_t index = 0; index < expected_elements.size(); ++index) {
-        test_integer_object(array->elements[index].get(), expected_elements[index]);
+        test_integer_object(object->array_elements()[index].get(), expected_elements[index]);
     }
 }
 
 auto hash_key_for_test(const Object* object) -> std::optional<HashKey> {
-    if (const auto* integer = dynamic_cast<const IntegerObject*>(object); integer != nullptr) {
-        return HashKey {ObjectType::Integer, std::hash<std::int64_t> {}(integer->value)};
-    }
-
-    if (const auto* boolean = dynamic_cast<const BooleanObject*>(object); boolean != nullptr) {
-        return HashKey {ObjectType::Boolean, std::hash<bool> {}(boolean->value)};
-    }
-
-    if (const auto* string = dynamic_cast<const StringObject*>(object); string != nullptr) {
-        return HashKey {ObjectType::String, std::hash<std::string> {}(string->value)};
-    }
-
-    return std::nullopt;
+    return object != nullptr ? object->hash_key() : std::nullopt;
 }
 
 void test_null_object(const Object* object) {
     REQUIRE(object != nullptr);
-
-    const auto* null = dynamic_cast<const NullObject*>(object);
-    REQUIRE(null != nullptr);
-    REQUIRE(null->type() == ObjectType::Null);
-    REQUIRE(null->inspect() == "null");
+    REQUIRE(object->type() == ObjectType::Null);
+    REQUIRE(object->inspect() == "null");
 }
 
 void test_error_object(const Object* object, std::string_view expected_message) {
     REQUIRE(object != nullptr);
-
-    const auto* error = dynamic_cast<const ErrorObject*>(object);
-    REQUIRE(error != nullptr);
-    REQUIRE(error->message == expected_message);
-    REQUIRE(error->type() == ObjectType::Error);
+    REQUIRE(object->type() == ObjectType::Error);
+    REQUIRE(object->error_message() == expected_message);
 }
 
 }  // namespace
@@ -294,13 +264,12 @@ TEST_CASE("TestFunctionObject", "[evaluator]") {
     const auto evaluated = test_eval(input);
     REQUIRE(evaluated != nullptr);
 
-    const auto* function = dynamic_cast<const FunctionObject*>(evaluated.get());
-    REQUIRE(function != nullptr);
-    REQUIRE(function->parameters.size() == 1);
-    REQUIRE(function->parameters[0] != nullptr);
-    REQUIRE(function->parameters[0]->as_string() == "x");
-    REQUIRE(function->body != nullptr);
-    REQUIRE(function->body->as_string() == "(x + 2)");
+    REQUIRE(evaluated->type() == ObjectType::Function);
+    REQUIRE(evaluated->function_parameters().size() == 1);
+    REQUIRE(evaluated->function_parameters()[0] != nullptr);
+    REQUIRE(evaluated->function_parameters()[0]->as_string() == "x");
+    REQUIRE(evaluated->function_body() != nullptr);
+    REQUIRE(evaluated->function_body()->as_string() == "(x + 2)");
 }
 
 TEST_CASE("TestFunctionApplication", "[evaluator]") {
@@ -414,14 +383,12 @@ TEST_CASE("TestArrayLiterals", "[evaluator]") {
     const auto evaluated = test_eval(input);
     REQUIRE(evaluated != nullptr);
 
-    const auto* array = dynamic_cast<const ArrayObject*>(evaluated.get());
-    REQUIRE(array != nullptr);
-    REQUIRE(array->type() == ObjectType::Array);
-    REQUIRE(array->elements.size() == 3);
+    REQUIRE(evaluated->type() == ObjectType::Array);
+    REQUIRE(evaluated->array_elements().size() == 3);
 
-    test_integer_object(array->elements[0].get(), 1);
-    test_integer_object(array->elements[1].get(), 4);
-    test_integer_object(array->elements[2].get(), 6);
+    test_integer_object(evaluated->array_elements()[0].get(), 1);
+    test_integer_object(evaluated->array_elements()[1].get(), 4);
+    test_integer_object(evaluated->array_elements()[2].get(), 6);
 }
 
 TEST_CASE("TestArrayIndexExpressions", "[evaluator]") {
@@ -466,37 +433,29 @@ TEST_CASE("TestHashLiterals", "[evaluator]") {
     const auto evaluated = test_eval(input);
     REQUIRE(evaluated != nullptr);
 
-    const auto* hash = dynamic_cast<const HashObject*>(evaluated.get());
-    REQUIRE(hash != nullptr);
-    REQUIRE(hash->type() == ObjectType::Hash);
-    REQUIRE(hash->pairs.size() == 6);
+    REQUIRE(evaluated->type() == ObjectType::Hash);
+    REQUIRE(evaluated->hash_pairs().size() == 6);
 
-    auto one = std::make_shared<StringObject>();
-    one->value = "one";
-    auto two = std::make_shared<StringObject>();
-    two->value = "two";
-    auto three = std::make_shared<StringObject>();
-    three->value = "three";
-    auto four = std::make_shared<IntegerObject>();
-    four->value = 4;
-    auto true_value = std::make_shared<BooleanObject>();
-    true_value->value = true;
-    auto false_value = std::make_shared<BooleanObject>();
-    false_value->value = false;
+    auto one = Object::make_string("one");
+    auto two = Object::make_string("two");
+    auto three = Object::make_string("three");
+    auto four = Object::make_integer(4);
+    auto true_value = Object::make_boolean(true);
+    auto false_value = Object::make_boolean(false);
 
-    const auto one_iterator = hash->pairs.find(*hash_key_for_test(one.get()));
-    const auto two_iterator = hash->pairs.find(*hash_key_for_test(two.get()));
-    const auto three_iterator = hash->pairs.find(*hash_key_for_test(three.get()));
-    const auto four_iterator = hash->pairs.find(*hash_key_for_test(four.get()));
-    const auto true_iterator = hash->pairs.find(*hash_key_for_test(true_value.get()));
-    const auto false_iterator = hash->pairs.find(*hash_key_for_test(false_value.get()));
+    const auto one_iterator = evaluated->hash_pairs().find(*hash_key_for_test(&one));
+    const auto two_iterator = evaluated->hash_pairs().find(*hash_key_for_test(&two));
+    const auto three_iterator = evaluated->hash_pairs().find(*hash_key_for_test(&three));
+    const auto four_iterator = evaluated->hash_pairs().find(*hash_key_for_test(&four));
+    const auto true_iterator = evaluated->hash_pairs().find(*hash_key_for_test(&true_value));
+    const auto false_iterator = evaluated->hash_pairs().find(*hash_key_for_test(&false_value));
 
-    REQUIRE(one_iterator != hash->pairs.end());
-    REQUIRE(two_iterator != hash->pairs.end());
-    REQUIRE(three_iterator != hash->pairs.end());
-    REQUIRE(four_iterator != hash->pairs.end());
-    REQUIRE(true_iterator != hash->pairs.end());
-    REQUIRE(false_iterator != hash->pairs.end());
+    REQUIRE(one_iterator != evaluated->hash_pairs().end());
+    REQUIRE(two_iterator != evaluated->hash_pairs().end());
+    REQUIRE(three_iterator != evaluated->hash_pairs().end());
+    REQUIRE(four_iterator != evaluated->hash_pairs().end());
+    REQUIRE(true_iterator != evaluated->hash_pairs().end());
+    REQUIRE(false_iterator != evaluated->hash_pairs().end());
 
     test_integer_object(one_iterator->second.value.get(), 1);
     test_integer_object(two_iterator->second.value.get(), 2);

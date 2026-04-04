@@ -11,41 +11,33 @@
 namespace {
 
 [[nodiscard]] auto eval_hash_index_expression(
-    const HashObject* hash,
+    const Object* hash,
     const std::shared_ptr<Object>& index
 ) -> std::shared_ptr<Object>;
 
 [[nodiscard]] auto nativeBoolToBooleanObject(bool input) -> std::shared_ptr<Object> {
     static auto true_object = [] {
-        auto object = std::make_shared<BooleanObject>();
-        object->value = true;
-        return object;
+        return std::make_shared<Object>(Object::make_boolean(true));
     }();
 
     static auto false_object = [] {
-        auto object = std::make_shared<BooleanObject>();
-        object->value = false;
-        return object;
+        return std::make_shared<Object>(Object::make_boolean(false));
     }();
 
     return input ? true_object : false_object;
 }
 
 [[nodiscard]] auto nullObject() -> std::shared_ptr<Object> {
-    static auto null_object = std::make_shared<NullObject>();
+    static auto null_object = std::make_shared<Object>(Object::make_null());
     return null_object;
 }
 
 [[nodiscard]] auto new_error(std::string message) -> std::shared_ptr<Object> {
-    auto error = std::make_shared<ErrorObject>();
-    error->message = std::move(message);
-    return error;
+    return std::make_shared<Object>(Object::make_error(std::move(message)));
 }
 
 [[nodiscard]] auto new_integer_object(std::int64_t value) -> std::shared_ptr<Object> {
-    auto result = std::make_shared<IntegerObject>();
-    result->value = value;
-    return result;
+    return std::make_shared<Object>(Object::make_integer(value));
 }
 
 [[nodiscard]] auto builtin_len(const std::vector<std::shared_ptr<Object>>& arguments)
@@ -56,12 +48,12 @@ namespace {
         );
     }
 
-    if (const auto* string = dynamic_cast<const StringObject*>(arguments[0].get()); string != nullptr) {
-        return new_integer_object(static_cast<std::int64_t>(string->value.size()));
+    if (arguments[0]->type() == ObjectType::String) {
+        return new_integer_object(static_cast<std::int64_t>(arguments[0]->string_value().size()));
     }
 
-    if (const auto* array = dynamic_cast<const ArrayObject*>(arguments[0].get()); array != nullptr) {
-        return new_integer_object(static_cast<std::int64_t>(array->elements.size()));
+    if (arguments[0]->type() == ObjectType::Array) {
+        return new_integer_object(static_cast<std::int64_t>(arguments[0]->array_elements().size()));
     }
 
     return new_error(
@@ -78,19 +70,19 @@ namespace {
         );
     }
 
-    const auto* array = dynamic_cast<const ArrayObject*>(arguments[0].get());
-    if (array == nullptr) {
+    if (arguments[0]->type() != ObjectType::Array) {
         return new_error(
             "argument to `first` must be Array, got " +
             std::string(to_string(arguments[0]->type()))
         );
     }
 
-    if (array->elements.empty()) {
+    const auto& elements = arguments[0]->array_elements();
+    if (elements.empty()) {
         return nullObject();
     }
 
-    return array->elements.front();
+    return elements.front();
 }
 
 [[nodiscard]] auto builtin_last(const std::vector<std::shared_ptr<Object>>& arguments)
@@ -101,19 +93,19 @@ namespace {
         );
     }
 
-    const auto* array = dynamic_cast<const ArrayObject*>(arguments[0].get());
-    if (array == nullptr) {
+    if (arguments[0]->type() != ObjectType::Array) {
         return new_error(
             "argument to `last` must be Array, got " +
             std::string(to_string(arguments[0]->type()))
         );
     }
 
-    if (array->elements.empty()) {
+    const auto& elements = arguments[0]->array_elements();
+    if (elements.empty()) {
         return nullObject();
     }
 
-    return array->elements.back();
+    return elements.back();
 }
 
 [[nodiscard]] auto builtin_rest(const std::vector<std::shared_ptr<Object>>& arguments)
@@ -124,21 +116,20 @@ namespace {
         );
     }
 
-    const auto* array = dynamic_cast<const ArrayObject*>(arguments[0].get());
-    if (array == nullptr) {
+    if (arguments[0]->type() != ObjectType::Array) {
         return new_error(
             "argument to `rest` must be Array, got " +
             std::string(to_string(arguments[0]->type()))
         );
     }
 
-    if (array->elements.empty()) {
+    const auto& elements = arguments[0]->array_elements();
+    if (elements.empty()) {
         return nullObject();
     }
 
-    auto result = std::make_shared<ArrayObject>();
-    result->elements.assign(array->elements.begin() + 1, array->elements.end());
-    return result;
+    std::vector<std::shared_ptr<Object>> rest(elements.begin() + 1, elements.end());
+    return std::make_shared<Object>(Object::make_array(std::move(rest)));
 }
 
 [[nodiscard]] auto builtin_push(const std::vector<std::shared_ptr<Object>>& arguments)
@@ -149,26 +140,22 @@ namespace {
         );
     }
 
-    const auto* array = dynamic_cast<const ArrayObject*>(arguments[0].get());
-    if (array == nullptr) {
+    if (arguments[0]->type() != ObjectType::Array) {
         return new_error(
             "argument to `push` must be Array, got " +
             std::string(to_string(arguments[0]->type()))
         );
     }
 
-    auto result = std::make_shared<ArrayObject>();
-    result->elements = array->elements;
-    result->elements.push_back(arguments[1]);
-    return result;
+    auto elements = arguments[0]->array_elements();
+    elements.push_back(arguments[1]);
+    return std::make_shared<Object>(Object::make_array(std::move(elements)));
 }
 
 [[nodiscard]] auto get_builtin_by_name(std::string_view name) -> std::shared_ptr<Object> {
     if (name == "len") {
         static auto builtin = [] {
-            auto object = std::make_shared<BuiltinObject>();
-            object->function = builtin_len;
-            return object;
+            return std::make_shared<Object>(Object::make_builtin(builtin_len));
         }();
 
         return builtin;
@@ -176,9 +163,7 @@ namespace {
 
     if (name == "first") {
         static auto builtin = [] {
-            auto object = std::make_shared<BuiltinObject>();
-            object->function = builtin_first;
-            return object;
+            return std::make_shared<Object>(Object::make_builtin(builtin_first));
         }();
 
         return builtin;
@@ -186,9 +171,7 @@ namespace {
 
     if (name == "last") {
         static auto builtin = [] {
-            auto object = std::make_shared<BuiltinObject>();
-            object->function = builtin_last;
-            return object;
+            return std::make_shared<Object>(Object::make_builtin(builtin_last));
         }();
 
         return builtin;
@@ -196,9 +179,7 @@ namespace {
 
     if (name == "rest") {
         static auto builtin = [] {
-            auto object = std::make_shared<BuiltinObject>();
-            object->function = builtin_rest;
-            return object;
+            return std::make_shared<Object>(Object::make_builtin(builtin_rest));
         }();
 
         return builtin;
@@ -206,9 +187,7 @@ namespace {
 
     if (name == "push") {
         static auto builtin = [] {
-            auto object = std::make_shared<BuiltinObject>();
-            object->function = builtin_push;
-            return object;
+            return std::make_shared<Object>(Object::make_builtin(builtin_push));
         }();
 
         return builtin;
@@ -231,8 +210,8 @@ namespace {
             return result;
         }
 
-        if (const auto* return_value = dynamic_cast<const ReturnValueObject*>(result.get()); return_value != nullptr) {
-            return return_value->value;
+        if (result->type() == ObjectType::ReturnValue) {
+            return result->return_value();
         }
     }
 
@@ -303,14 +282,11 @@ namespace {
 }
 
 [[nodiscard]] auto eval_minus_prefix_operator_expression(const std::shared_ptr<Object>& right) -> std::shared_ptr<Object> {
-    const auto* integer = dynamic_cast<const IntegerObject*>(right.get());
-    if (integer == nullptr) {
+    if (right->type() != ObjectType::Integer) {
         return new_error("unknown operator: -" + std::string(to_string(right->type())));
     }
 
-    auto result = std::make_shared<IntegerObject>();
-    result->value = -integer->value;
-    return result;
+    return std::make_shared<Object>(Object::make_integer(-right->integer_value()));
 }
 
 [[nodiscard]] auto eval_prefix_expression(
@@ -330,47 +306,39 @@ namespace {
 
 [[nodiscard]] auto eval_integer_infix_expression(
     const std::string& op,
-    const IntegerObject* left,
-    const IntegerObject* right
+    const Object* left,
+    const Object* right
 ) -> std::shared_ptr<Object> {
     if (op == "+") {
-        auto result = std::make_shared<IntegerObject>();
-        result->value = left->value + right->value;
-        return result;
+        return new_integer_object(left->integer_value() + right->integer_value());
     }
 
     if (op == "-") {
-        auto result = std::make_shared<IntegerObject>();
-        result->value = left->value - right->value;
-        return result;
+        return new_integer_object(left->integer_value() - right->integer_value());
     }
 
     if (op == "*") {
-        auto result = std::make_shared<IntegerObject>();
-        result->value = left->value * right->value;
-        return result;
+        return new_integer_object(left->integer_value() * right->integer_value());
     }
 
     if (op == "/") {
-        auto result = std::make_shared<IntegerObject>();
-        result->value = left->value / right->value;
-        return result;
+        return new_integer_object(left->integer_value() / right->integer_value());
     }
 
     if (op == "<") {
-        return nativeBoolToBooleanObject(left->value < right->value);
+        return nativeBoolToBooleanObject(left->integer_value() < right->integer_value());
     }
 
     if (op == ">") {
-        return nativeBoolToBooleanObject(left->value > right->value);
+        return nativeBoolToBooleanObject(left->integer_value() > right->integer_value());
     }
 
     if (op == "==") {
-        return nativeBoolToBooleanObject(left->value == right->value);
+        return nativeBoolToBooleanObject(left->integer_value() == right->integer_value());
     }
 
     if (op == "!=") {
-        return nativeBoolToBooleanObject(left->value != right->value);
+        return nativeBoolToBooleanObject(left->integer_value() != right->integer_value());
     }
 
     return new_error(
@@ -383,13 +351,13 @@ namespace {
 
 [[nodiscard]] auto eval_string_infix_expression(
     const std::string& op,
-    const StringObject* left,
-    const StringObject* right
+    const Object* left,
+    const Object* right
 ) -> std::shared_ptr<Object> {
     if (op == "+") {
-        auto result = std::make_shared<StringObject>();
-        result->value = left->value + right->value;
-        return result;
+        return std::make_shared<Object>(
+            Object::make_string(left->string_value() + right->string_value())
+        );
     }
 
     return new_error(
@@ -405,18 +373,12 @@ namespace {
     const std::shared_ptr<Object>& left,
     const std::shared_ptr<Object>& right
 ) -> std::shared_ptr<Object> {
-    const auto* left_integer = dynamic_cast<const IntegerObject*>(left.get());
-    const auto* right_integer = dynamic_cast<const IntegerObject*>(right.get());
-
-    if (left_integer != nullptr && right_integer != nullptr) {
-        return eval_integer_infix_expression(op, left_integer, right_integer);
+    if (left->type() == ObjectType::Integer && right->type() == ObjectType::Integer) {
+        return eval_integer_infix_expression(op, left.get(), right.get());
     }
 
-    const auto* left_string = dynamic_cast<const StringObject*>(left.get());
-    const auto* right_string = dynamic_cast<const StringObject*>(right.get());
-
-    if (left_string != nullptr && right_string != nullptr) {
-        return eval_string_infix_expression(op, left_string, right_string);
+    if (left->type() == ObjectType::String && right->type() == ObjectType::String) {
+        return eval_string_infix_expression(op, left.get(), right.get());
     }
 
     if (op == "==") {
@@ -445,34 +407,31 @@ namespace {
 }
 
 [[nodiscard]] auto eval_array_index_expression(
-    const ArrayObject* array,
-    const IntegerObject* index
+    const Object* array,
+    const Object* index
 ) -> std::shared_ptr<Object> {
-    if (index->value < 0) {
+    if (index->integer_value() < 0) {
         return nullObject();
     }
 
-    const auto max_index = static_cast<std::int64_t>(array->elements.size()) - 1;
-    if (index->value > max_index) {
+    const auto max_index = static_cast<std::int64_t>(array->array_elements().size()) - 1;
+    if (index->integer_value() > max_index) {
         return nullObject();
     }
 
-    return array->elements[static_cast<std::size_t>(index->value)];
+    return array->array_elements()[static_cast<std::size_t>(index->integer_value())];
 }
 
 [[nodiscard]] auto eval_index_expression(
     const std::shared_ptr<Object>& left,
     const std::shared_ptr<Object>& index
 ) -> std::shared_ptr<Object> {
-    const auto* array = dynamic_cast<const ArrayObject*>(left.get());
-    const auto* integer_index = dynamic_cast<const IntegerObject*>(index.get());
-
-    if (array != nullptr && integer_index != nullptr) {
-        return eval_array_index_expression(array, integer_index);
+    if (left->type() == ObjectType::Array && index->type() == ObjectType::Integer) {
+        return eval_array_index_expression(left.get(), index.get());
     }
 
-    if (const auto* hash = dynamic_cast<const HashObject*>(left.get()); hash != nullptr) {
-        return eval_hash_index_expression(hash, index);
+    if (left->type() == ObjectType::Hash) {
+        return eval_hash_index_expression(left.get(), index);
     }
 
     return new_error(
@@ -491,7 +450,7 @@ namespace {
 
 [[nodiscard]] auto eval_hash_literal(const HashLiteral* hash_literal, Environment& environment)
     -> std::shared_ptr<Object> {
-    auto hash = std::make_shared<HashObject>();
+    std::unordered_map<HashKey, HashPair, HashKeyHasher> pairs;
 
     for (const auto& [key_node, value_node] : hash_literal->pairs) {
         const auto key = eval_node(key_node.get(), environment);
@@ -509,14 +468,14 @@ namespace {
             return value;
         }
 
-        hash->pairs[*hash_key] = HashPair {key, value};
+        pairs[*hash_key] = HashPair {key, value};
     }
 
-    return hash;
+    return std::make_shared<Object>(Object::make_hash(std::move(pairs)));
 }
 
 [[nodiscard]] auto eval_hash_index_expression(
-    const HashObject* hash,
+    const Object* hash,
     const std::shared_ptr<Object>& index
 ) -> std::shared_ptr<Object> {
     const auto hash_key = hash_key_for_object(index);
@@ -524,8 +483,8 @@ namespace {
         return new_error("unusable as hash key: " + std::string(to_string(index->type())));
     }
 
-    const auto iterator = hash->pairs.find(*hash_key);
-    if (iterator == hash->pairs.end()) {
+    const auto iterator = hash->hash_pairs().find(*hash_key);
+    if (iterator == hash->hash_pairs().end()) {
         return nullObject();
     }
 
@@ -536,25 +495,24 @@ namespace {
     const std::shared_ptr<Object>& function,
     const std::vector<std::shared_ptr<Object>>& arguments
 ) -> std::shared_ptr<Object> {
-    if (const auto* builtin = dynamic_cast<const BuiltinObject*>(function.get()); builtin != nullptr) {
-        return builtin->function(arguments);
+    if (function->type() == ObjectType::Builtin) {
+        return function->builtin_function()(arguments);
     }
 
-    const auto* function_object = dynamic_cast<const FunctionObject*>(function.get());
-    if (function_object == nullptr) {
+    if (function->type() != ObjectType::Function) {
         return new_error("not a function: " + std::string(to_string(function->type())));
     }
 
-    auto extended_environment = new_enclosed_environment(function_object->env);
-    for (std::size_t index = 0; index < function_object->parameters.size(); ++index) {
-        if (function_object->parameters[index] != nullptr && index < arguments.size()) {
-            extended_environment->set(function_object->parameters[index]->value, arguments[index]);
+    auto extended_environment = new_enclosed_environment(function->function_env());
+    for (std::size_t index = 0; index < function->function_parameters().size(); ++index) {
+        if (function->function_parameters()[index] != nullptr && index < arguments.size()) {
+            extended_environment->set(function->function_parameters()[index]->value, arguments[index]);
         }
     }
 
-    auto evaluated = eval_node(function_object->body.get(), *extended_environment);
-    if (const auto* return_value = dynamic_cast<const ReturnValueObject*>(evaluated.get()); return_value != nullptr) {
-        return return_value->value;
+    auto evaluated = eval_node(function->function_body(), *extended_environment);
+    if (evaluated->type() == ObjectType::ReturnValue) {
+        return evaluated->return_value();
     }
 
     return evaluated;
@@ -602,20 +560,19 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
 
         environment.set(statement->name.literal, value);
 
-        if (const auto* function = dynamic_cast<const FunctionObject*>(value.get()); function != nullptr) {
-            function->env->set(statement->name.literal, value);
+        if (value->type() == ObjectType::Function) {
+            value->function_env_mut()->set(statement->name.literal, value);
         }
 
         return nullObject();
     }
 
     if (const auto* statement = dynamic_cast<const ReturnStatement*>(node); statement != nullptr) {
-        auto result = std::make_shared<ReturnValueObject>();
-        result->value = eval_node(statement->return_value.get(), environment);
-        if (is_error(result->value)) {
-            return result->value;
+        const auto value = eval_node(statement->return_value.get(), environment);
+        if (is_error(value)) {
+            return value;
         }
-        return result;
+        return std::make_shared<Object>(Object::make_return(value));
     }
 
     if (const auto* block = dynamic_cast<const BlockStatement*>(node); block != nullptr) {
@@ -685,9 +642,7 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
     }
 
     if (const auto* integer_literal = dynamic_cast<const IntegerLiteral*>(node); integer_literal != nullptr) {
-        auto integer = std::make_shared<IntegerObject>();
-        integer->value = integer_literal->value;
-        return integer;
+        return std::make_shared<Object>(Object::make_integer(integer_literal->value));
     }
 
     if (const auto* boolean = dynamic_cast<const Boolean*>(node); boolean != nullptr) {
@@ -695,9 +650,7 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
     }
 
     if (const auto* string_literal = dynamic_cast<const StringLiteral*>(node); string_literal != nullptr) {
-        auto string = std::make_shared<StringObject>();
-        string->value = string_literal->value;
-        return string;
+        return std::make_shared<Object>(Object::make_string(string_literal->value));
     }
 
     if (const auto* array_literal = dynamic_cast<const ArrayLiteral*>(node); array_literal != nullptr) {
@@ -706,9 +659,7 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
             return elements[0];
         }
 
-        auto array = std::make_shared<ArrayObject>();
-        array->elements = elements;
-        return array;
+        return std::make_shared<Object>(Object::make_array(elements));
     }
 
     if (const auto* hash_literal = dynamic_cast<const HashLiteral*>(node); hash_literal != nullptr) {
@@ -720,23 +671,25 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
     }
 
     if (const auto* function_literal = dynamic_cast<const FunctionLiteral*>(node); function_literal != nullptr) {
-        auto function = std::make_shared<FunctionObject>();
-        function->env = std::make_shared<Environment>(environment);
-
+        std::vector<std::unique_ptr<Identifier>> parameters;
         for (const auto& parameter : function_literal->parameters) {
             if (parameter != nullptr) {
                 auto parameter_clone = std::make_unique<Identifier>();
                 parameter_clone->token = parameter->token;
                 parameter_clone->value = parameter->value;
-                function->parameters.push_back(std::move(parameter_clone));
+                parameters.push_back(std::move(parameter_clone));
             }
         }
 
-        if (function_literal->body != nullptr) {
-            function->body = clone_block_statement(*function_literal->body);
-        }
+        auto body = function_literal->body != nullptr
+            ? clone_block_statement(*function_literal->body)
+            : nullptr;
 
-        return function;
+        return std::make_shared<Object>(Object::make_function(
+            std::move(parameters),
+            std::move(body),
+            std::make_shared<Environment>(environment)
+        ));
     }
 
     return nullObject();
