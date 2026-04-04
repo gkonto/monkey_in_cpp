@@ -233,6 +233,91 @@ TEST_CASE("TestParsingArrayLiterals", "[parser]") {
     test_literal_expression(third->right.get(), std::int64_t {3});
 }
 
+TEST_CASE("TestParsingHashLiterals", "[parser]") {
+    constexpr auto input = "{\"one\": 1, \"two\": 2, \"three\": 3}";
+
+    auto lexer = Lexer {input};
+    auto parser = Parser {lexer};
+    const auto program = parser.parse_program();
+
+    check_parser_errors(parser);
+    REQUIRE(program.statements.size() == 1);
+
+    const auto* statement = dynamic_cast<const ExpressionStatement*>(program.statements[0].get());
+    REQUIRE(statement != nullptr);
+    REQUIRE(statement->expression != nullptr);
+
+    const auto* hash = dynamic_cast<const HashLiteral*>(statement->expression.get());
+    REQUIRE(hash != nullptr);
+    REQUIRE(hash->pairs.size() == 3);
+
+    test_string_literal(hash->pairs[0].first.get(), "one");
+    test_integer_literal(hash->pairs[0].second.get(), 1);
+    test_string_literal(hash->pairs[1].first.get(), "two");
+    test_integer_literal(hash->pairs[1].second.get(), 2);
+    test_string_literal(hash->pairs[2].first.get(), "three");
+    test_integer_literal(hash->pairs[2].second.get(), 3);
+}
+
+TEST_CASE("TestParsingEmptyHashLiteral", "[parser]") {
+    constexpr auto input = "{}";
+
+    auto lexer = Lexer {input};
+    auto parser = Parser {lexer};
+    const auto program = parser.parse_program();
+
+    check_parser_errors(parser);
+    REQUIRE(program.statements.size() == 1);
+
+    const auto* statement = dynamic_cast<const ExpressionStatement*>(program.statements[0].get());
+    REQUIRE(statement != nullptr);
+    REQUIRE(statement->expression != nullptr);
+
+    const auto* hash = dynamic_cast<const HashLiteral*>(statement->expression.get());
+    REQUIRE(hash != nullptr);
+    REQUIRE(hash->pairs.empty());
+}
+
+TEST_CASE("TestParsingHashLiteralsWithExpressions", "[parser]") {
+    constexpr auto input = "{\"one\": 0 + 1, \"two\": 10 - 8, \"three\": 15 / 5}";
+
+    auto lexer = Lexer {input};
+    auto parser = Parser {lexer};
+    const auto program = parser.parse_program();
+
+    check_parser_errors(parser);
+    REQUIRE(program.statements.size() == 1);
+
+    const auto* statement = dynamic_cast<const ExpressionStatement*>(program.statements[0].get());
+    REQUIRE(statement != nullptr);
+    REQUIRE(statement->expression != nullptr);
+
+    const auto* hash = dynamic_cast<const HashLiteral*>(statement->expression.get());
+    REQUIRE(hash != nullptr);
+    REQUIRE(hash->pairs.size() == 3);
+
+    test_string_literal(hash->pairs[0].first.get(), "one");
+    const auto* one_value = dynamic_cast<const InfixExpression*>(hash->pairs[0].second.get());
+    REQUIRE(one_value != nullptr);
+    test_integer_literal(one_value->left.get(), 0);
+    REQUIRE(one_value->op == "+");
+    test_integer_literal(one_value->right.get(), 1);
+
+    test_string_literal(hash->pairs[1].first.get(), "two");
+    const auto* two_value = dynamic_cast<const InfixExpression*>(hash->pairs[1].second.get());
+    REQUIRE(two_value != nullptr);
+    test_integer_literal(two_value->left.get(), 10);
+    REQUIRE(two_value->op == "-");
+    test_integer_literal(two_value->right.get(), 8);
+
+    test_string_literal(hash->pairs[2].first.get(), "three");
+    const auto* three_value = dynamic_cast<const InfixExpression*>(hash->pairs[2].second.get());
+    REQUIRE(three_value != nullptr);
+    test_integer_literal(three_value->left.get(), 15);
+    REQUIRE(three_value->op == "/");
+    test_integer_literal(three_value->right.get(), 5);
+}
+
 TEST_CASE("TestParsingIndexExpressions", "[parser]") {
     constexpr auto input = "myArray[1 + 1]";
 

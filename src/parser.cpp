@@ -145,6 +145,34 @@ auto Parser::parse_array_literal() -> std::unique_ptr<ArrayLiteral> {
     return array;
 }
 
+auto Parser::parse_hash_literal() -> std::unique_ptr<HashLiteral> {
+    auto hash = std::make_unique<HashLiteral>();
+    hash->token = current_token_;
+
+    while (!peek_token_is(TokenType::RightBrace)) {
+        next_token();
+        auto key = parse_expression(Precedence::Lowest);
+
+        if (!expect_peek(TokenType::Colon)) {
+            return nullptr;
+        }
+
+        next_token();
+        auto value = parse_expression(Precedence::Lowest);
+        hash->pairs.push_back({std::move(key), std::move(value)});
+
+        if (!peek_token_is(TokenType::RightBrace) && !expect_peek(TokenType::Comma)) {
+            return nullptr;
+        }
+    }
+
+    if (!expect_peek(TokenType::RightBrace)) {
+        return nullptr;
+    }
+
+    return hash;
+}
+
 auto Parser::parse_prefix_expression() -> std::unique_ptr<PrefixExpression> {
     auto expression = std::make_unique<PrefixExpression>();
     expression->token = current_token_;
@@ -397,6 +425,12 @@ auto Parser::prefix_parse_fn() -> ParsePrefixFn {
     if (current_token_is(TokenType::LeftBracket)) {
         return [this]() {
             return parse_array_literal();
+        };
+    }
+
+    if (current_token_is(TokenType::LeftBrace)) {
+        return [this]() {
+            return parse_hash_literal();
         };
     }
 

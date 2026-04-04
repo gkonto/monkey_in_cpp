@@ -23,6 +23,7 @@ enum class TokenType {
     GreaterThan,
     
     Comma,
+    Colon,
     Semicolon,
 
     LeftParen,
@@ -112,6 +113,8 @@ struct Token {
             return "GreaterThan";
         case TokenType::Comma:
             return "Comma";
+        case TokenType::Colon:
+            return "Colon";
         case TokenType::Semicolon:
             return "Semicolon";
         case TokenType::LeftParen:

@@ -43,6 +43,7 @@ private:
     [[nodiscard]] auto parse_boolean() -> std::unique_ptr<Boolean>;
     [[nodiscard]] auto parse_string_literal() -> std::unique_ptr<StringLiteral>;
     [[nodiscard]] auto parse_array_literal() -> std::unique_ptr<ArrayLiteral>;
+    [[nodiscard]] auto parse_hash_literal() -> std::unique_ptr<HashLiteral>;
     [[nodiscard]] auto parse_prefix_expression() -> std::unique_ptr<PrefixExpression>;
     [[nodiscard]] auto parse_grouped_expression() -> std::unique_ptr<Expression>;
     [[nodiscard]] auto parse_if_expression() -> std::unique_ptr<IfExpression>;

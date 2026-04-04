@@ -100,6 +100,38 @@ struct ArrayLiteral : Expression {
     }
 };
 
+struct HashLiteral : Expression {
+    Token token;
+    std::vector<std::pair<std::unique_ptr<Expression>, std::unique_ptr<Expression>>> pairs;
+
+    [[nodiscard]] auto token_literal() const -> std::string override {
+        return token.literal;
+    }
+
+    [[nodiscard]] auto as_string() const -> std::string override {
+        std::string out = "{";
+
+        for (std::size_t index = 0; index < pairs.size(); ++index) {
+            if (index > 0) {
+                out += ", ";
+            }
+
+            if (pairs[index].first != nullptr) {
+                out += pairs[index].first->as_string();
+            }
+
+            out += ": ";
+
+            if (pairs[index].second != nullptr) {
+                out += pairs[index].second->as_string();
+            }
+        }
+
+        out += "}";
+        return out;
+    }
+};
+
 struct PrefixExpression : Expression {
     Token token;
     std::string op;
@@ -429,6 +461,26 @@ struct ReturnStatement : Statement {
             if (element != nullptr) {
                 clone->elements.push_back(clone_expression(*element));
             }
+        }
+        return clone;
+    }
+
+    if (const auto* hash = dynamic_cast<const HashLiteral*>(&expression); hash != nullptr) {
+        auto clone = std::make_unique<HashLiteral>();
+        clone->token = hash->token;
+        for (const auto& [key, value] : hash->pairs) {
+            std::unique_ptr<Expression> key_clone;
+            std::unique_ptr<Expression> value_clone;
+
+            if (key != nullptr) {
+                key_clone = clone_expression(*key);
+            }
+
+            if (value != nullptr) {
+                value_clone = clone_expression(*value);
+            }
+
+            clone->pairs.push_back({std::move(key_clone), std::move(value_clone)});
         }
         return clone;
     }

@@ -29,6 +29,29 @@ TEST_CASE("StringObject exposes String type and inspect value", "[object]") {
     REQUIRE(object.inspect() == "hello");
 }
 
+TEST_CASE("TestStringHashKey", "[object]") {
+    StringObject hello1 {};
+    hello1.value = "Hello World";
+
+    StringObject hello2 {};
+    hello2.value = "Hello World";
+
+    StringObject diff1 {};
+    diff1.value = "My name is johnny";
+
+    StringObject diff2 {};
+    diff2.value = "My name is johnny";
+
+    REQUIRE(hello1.hash_key().has_value());
+    REQUIRE(hello2.hash_key().has_value());
+    REQUIRE(diff1.hash_key().has_value());
+    REQUIRE(diff2.hash_key().has_value());
+
+    REQUIRE(*hello1.hash_key() == *hello2.hash_key());
+    REQUIRE(*diff1.hash_key() == *diff2.hash_key());
+    REQUIRE(*hello1.hash_key() != *diff1.hash_key());
+}
+
 TEST_CASE("NullObject exposes Null type and inspect value", "[object]") {
     NullObject object {};
 

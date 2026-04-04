@@ -63,6 +63,9 @@ auto Lexer::next_token() -> Token {
         case ',':
             read_char();
             return {TokenType::Comma, ","};
+        case ':':
+            read_char();
+            return {TokenType::Colon, ":"};
         case ';':
             read_char();
             return {TokenType::Semicolon, ";"};

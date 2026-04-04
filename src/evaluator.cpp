@@ -1,12 +1,19 @@
 #include "monkey/evaluator.hpp"
 #include "monkey/environment.hpp"
 
+#include <functional>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 [[nodiscard]] auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Object>;
 
 namespace {
+
+[[nodiscard]] auto eval_hash_index_expression(
+    const HashObject* hash,
+    const std::shared_ptr<Object>& index
+) -> std::shared_ptr<Object>;
 
 [[nodiscard]] auto nativeBoolToBooleanObject(bool input) -> std::shared_ptr<Object> {
     static auto true_object = [] {
@@ -464,9 +471,65 @@ namespace {
         return eval_array_index_expression(array, integer_index);
     }
 
+    if (const auto* hash = dynamic_cast<const HashObject*>(left.get()); hash != nullptr) {
+        return eval_hash_index_expression(hash, index);
+    }
+
     return new_error(
         "index operator not supported: " + std::string(to_string(left->type()))
     );
+}
+
+[[nodiscard]] auto hash_key_for_object(const std::shared_ptr<Object>& object)
+    -> std::optional<HashKey> {
+    if (object == nullptr) {
+        return std::nullopt;
+    }
+
+    return object->hash_key();
+}
+
+[[nodiscard]] auto eval_hash_literal(const HashLiteral* hash_literal, Environment& environment)
+    -> std::shared_ptr<Object> {
+    auto hash = std::make_shared<HashObject>();
+
+    for (const auto& [key_node, value_node] : hash_literal->pairs) {
+        const auto key = eval_node(key_node.get(), environment);
+        if (is_error(key)) {
+            return key;
+        }
+
+        const auto hash_key = hash_key_for_object(key);
+        if (!hash_key.has_value()) {
+            return new_error("unusable as hash key: " + std::string(to_string(key->type())));
+        }
+
+        const auto value = eval_node(value_node.get(), environment);
+        if (is_error(value)) {
+            return value;
+        }
+
+        hash->pairs[*hash_key] = HashPair {key, value};
+    }
+
+    return hash;
+}
+
+[[nodiscard]] auto eval_hash_index_expression(
+    const HashObject* hash,
+    const std::shared_ptr<Object>& index
+) -> std::shared_ptr<Object> {
+    const auto hash_key = hash_key_for_object(index);
+    if (!hash_key.has_value()) {
+        return new_error("unusable as hash key: " + std::string(to_string(index->type())));
+    }
+
+    const auto iterator = hash->pairs.find(*hash_key);
+    if (iterator == hash->pairs.end()) {
+        return nullObject();
+    }
+
+    return iterator->second.value;
 }
 
 [[nodiscard]] auto apply_function(
@@ -641,6 +704,10 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
         auto array = std::make_shared<ArrayObject>();
         array->elements = elements;
         return array;
+    }
+
+    if (const auto* hash_literal = dynamic_cast<const HashLiteral*>(node); hash_literal != nullptr) {
+        return eval_hash_literal(hash_literal, environment);
     }
 
     if (const auto* if_expression = dynamic_cast<const IfExpression*>(node); if_expression != nullptr) {

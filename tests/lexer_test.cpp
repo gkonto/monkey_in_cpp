@@ -41,6 +41,7 @@ TEST_CASE("TestNextToken extended input", "[lexer]") {
         "10 == 10;\n"
         "10 != 9;\n"
         "[1, 2]\n"
+        "{\"foo\": \"bar\"}\n"
         "\"foobar\"\n"
         "\"foo bar\"";
 
@@ -123,6 +124,11 @@ TEST_CASE("TestNextToken extended input", "[lexer]") {
         {TokenType::Comma, ","},
         {TokenType::Integer, "2"},
         {TokenType::RightBracket, "]"},
+        {TokenType::LeftBrace, "{"},
+        {TokenType::String, "foo"},
+        {TokenType::Colon, ":"},
+        {TokenType::String, "bar"},
+        {TokenType::RightBrace, "}"},
         {TokenType::String, "foobar"},
         {TokenType::String, "foo bar"},
         {TokenType::EndOfFile, ""},

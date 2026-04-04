@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <variant>
 
@@ -60,6 +61,22 @@ void test_integer_array_object(
     for (std::size_t index = 0; index < expected_elements.size(); ++index) {
         test_integer_object(array->elements[index].get(), expected_elements[index]);
     }
+}
+
+auto hash_key_for_test(const Object* object) -> std::optional<HashKey> {
+    if (const auto* integer = dynamic_cast<const IntegerObject*>(object); integer != nullptr) {
+        return HashKey {ObjectType::Integer, std::hash<std::int64_t> {}(integer->value)};
+    }
+
+    if (const auto* boolean = dynamic_cast<const BooleanObject*>(object); boolean != nullptr) {
+        return HashKey {ObjectType::Boolean, std::hash<bool> {}(boolean->value)};
+    }
+
+    if (const auto* string = dynamic_cast<const StringObject*>(object); string != nullptr) {
+        return HashKey {ObjectType::String, std::hash<std::string> {}(string->value)};
+    }
+
+    return std::nullopt;
 }
 
 void test_null_object(const Object* object) {
@@ -243,6 +260,7 @@ TEST_CASE("TestErrorHandling", "[evaluator]") {
             "unknown operator: Boolean + Boolean",
         },
         {"foobar", "identifier not found: foobar"},
+        {"{\"name\": \"Monkey\"}[fn(x) { x }];", "unusable as hash key: Function"},
     };
 
     for (const auto& test_case : test_cases) {
@@ -425,6 +443,85 @@ TEST_CASE("TestArrayIndexExpressions", "[evaluator]") {
         {"let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i];", std::int64_t {2}},
         {"[1, 2, 3][3]", std::monostate {}},
         {"[1, 2, 3][-1]", std::monostate {}},
+    };
+
+    for (const auto& test_case : test_cases) {
+        const auto evaluated = test_eval(test_case.input);
+
+        std::visit([&](const auto& expected) {
+            using ExpectedType = std::decay_t<decltype(expected)>;
+
+            if constexpr (std::is_same_v<ExpectedType, std::int64_t>) {
+                test_integer_object(evaluated.get(), expected);
+            } else {
+                test_null_object(evaluated.get());
+            }
+        }, test_case.expected);
+    }
+}
+
+TEST_CASE("TestHashLiterals", "[evaluator]") {
+    constexpr auto input = "{\"one\": 10 - 9, \"two\": 1 + 1, \"three\": 6 / 2, 4: 4, true: 5, false: 6}";
+
+    const auto evaluated = test_eval(input);
+    REQUIRE(evaluated != nullptr);
+
+    const auto* hash = dynamic_cast<const HashObject*>(evaluated.get());
+    REQUIRE(hash != nullptr);
+    REQUIRE(hash->type() == ObjectType::Hash);
+    REQUIRE(hash->pairs.size() == 6);
+
+    auto one = std::make_shared<StringObject>();
+    one->value = "one";
+    auto two = std::make_shared<StringObject>();
+    two->value = "two";
+    auto three = std::make_shared<StringObject>();
+    three->value = "three";
+    auto four = std::make_shared<IntegerObject>();
+    four->value = 4;
+    auto true_value = std::make_shared<BooleanObject>();
+    true_value->value = true;
+    auto false_value = std::make_shared<BooleanObject>();
+    false_value->value = false;
+
+    const auto one_iterator = hash->pairs.find(*hash_key_for_test(one.get()));
+    const auto two_iterator = hash->pairs.find(*hash_key_for_test(two.get()));
+    const auto three_iterator = hash->pairs.find(*hash_key_for_test(three.get()));
+    const auto four_iterator = hash->pairs.find(*hash_key_for_test(four.get()));
+    const auto true_iterator = hash->pairs.find(*hash_key_for_test(true_value.get()));
+    const auto false_iterator = hash->pairs.find(*hash_key_for_test(false_value.get()));
+
+    REQUIRE(one_iterator != hash->pairs.end());
+    REQUIRE(two_iterator != hash->pairs.end());
+    REQUIRE(three_iterator != hash->pairs.end());
+    REQUIRE(four_iterator != hash->pairs.end());
+    REQUIRE(true_iterator != hash->pairs.end());
+    REQUIRE(false_iterator != hash->pairs.end());
+
+    test_integer_object(one_iterator->second.value.get(), 1);
+    test_integer_object(two_iterator->second.value.get(), 2);
+    test_integer_object(three_iterator->second.value.get(), 3);
+    test_integer_object(four_iterator->second.value.get(), 4);
+    test_integer_object(true_iterator->second.value.get(), 5);
+    test_integer_object(false_iterator->second.value.get(), 6);
+}
+
+TEST_CASE("TestHashIndexExpressions", "[evaluator]") {
+    using Expected = std::variant<std::int64_t, std::monostate>;
+
+    struct TestCase {
+        std::string_view input;
+        Expected expected;
+    };
+
+    const TestCase test_cases[] = {
+        {"{\"foo\": 5}[\"foo\"]", std::int64_t {5}},
+        {"{\"foo\": 5}[\"bar\"]", std::monostate {}},
+        {"let key = \"foo\"; {\"foo\": 5}[key]", std::int64_t {5}},
+        {"{}[\"foo\"]", std::monostate {}},
+        {"{5: 5}[5]", std::int64_t {5}},
+        {"{true: 5}[true]", std::int64_t {5}},
+        {"{false: 5}[false]", std::int64_t {5}},
     };
 
     for (const auto& test_case : test_cases) {

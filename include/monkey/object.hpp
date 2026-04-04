@@ -3,7 +3,9 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "monkey/ast.hpp"
@@ -15,6 +17,7 @@ enum class ObjectType {
     Boolean,
     String,
     Array,
+    Hash,
     Null,
     ReturnValue,
     Error,
@@ -32,6 +35,8 @@ enum class ObjectType {
             return "String";
         case ObjectType::Array:
             return "Array";
+        case ObjectType::Hash:
+            return "Hash";
         case ObjectType::Null:
             return "Null";
         case ObjectType::ReturnValue:
@@ -47,11 +52,34 @@ enum class ObjectType {
     return "Unknown";
 }
 
+struct HashKey {
+    ObjectType type {ObjectType::Null};
+    std::size_t value {0};
+
+    [[nodiscard]] auto operator==(const HashKey& other) const -> bool = default;
+};
+
+struct HashKeyHasher {
+    [[nodiscard]] auto operator()(const HashKey& key) const -> std::size_t {
+        return std::hash<int> {}(static_cast<int>(key.type)) ^ (key.value << 1U);
+    }
+};
+
+struct Object;
+
+struct HashPair {
+    std::shared_ptr<Object> key;
+    std::shared_ptr<Object> value;
+};
+
 struct Object {
     virtual ~Object() = default;
 
     [[nodiscard]] virtual auto type() const -> ObjectType = 0;
     [[nodiscard]] virtual auto inspect() const -> std::string = 0;
+    [[nodiscard]] virtual auto hash_key() const -> std::optional<HashKey> {
+        return std::nullopt;
+    }
 };
 
 struct IntegerObject : Object {
@@ -63,6 +91,10 @@ struct IntegerObject : Object {
 
     [[nodiscard]] auto inspect() const -> std::string override {
         return std::to_string(value);
+    }
+
+    [[nodiscard]] auto hash_key() const -> std::optional<HashKey> override {
+        return HashKey {ObjectType::Integer, std::hash<std::int64_t> {}(value)};
     }
 };
 
@@ -76,6 +108,10 @@ struct BooleanObject : Object {
     [[nodiscard]] auto inspect() const -> std::string override {
         return value ? "true" : "false";
     }
+
+    [[nodiscard]] auto hash_key() const -> std::optional<HashKey> override {
+        return HashKey {ObjectType::Boolean, std::hash<bool> {}(value)};
+    }
 };
 
 struct StringObject : Object {
@@ -87,6 +123,10 @@ struct StringObject : Object {
 
     [[nodiscard]] auto inspect() const -> std::string override {
         return value;
+    }
+
+    [[nodiscard]] auto hash_key() const -> std::optional<HashKey> override {
+        return HashKey {ObjectType::String, std::hash<std::string> {}(value)};
     }
 };
 
@@ -113,6 +153,33 @@ struct ArrayObject : Object {
         }
 
         out += "]";
+        return out;
+    }
+};
+
+struct HashObject : Object {
+    std::unordered_map<HashKey, HashPair, HashKeyHasher> pairs;
+
+    [[nodiscard]] auto type() const -> ObjectType override {
+        return ObjectType::Hash;
+    }
+
+    [[nodiscard]] auto inspect() const -> std::string override {
+        std::string out = "{";
+        bool first = true;
+
+        for (const auto& [_, pair] : pairs) {
+            if (!first) {
+                out += ", ";
+            }
+
+            first = false;
+            out += pair.key != nullptr ? pair.key->inspect() : "null";
+            out += ": ";
+            out += pair.value != nullptr ? pair.value->inspect() : "null";
+        }
+
+        out += "}";
         return out;
     }
 };
