@@ -92,6 +92,23 @@ enum class NodeType {
     ReturnStatement,
 };
 
+enum class SymbolScope {
+    Unresolved,
+    Global,
+    Local,
+    Builtin,
+};
+
+struct SymbolRef {
+    SymbolScope scope {SymbolScope::Unresolved};
+    std::size_t depth {0};
+    std::size_t index {0};
+
+    [[nodiscard]] auto resolved() const -> bool {
+        return scope != SymbolScope::Unresolved;
+    }
+};
+
 struct Node {
     explicit Node(NodeType node_type) : node_type_(node_type) {}
     virtual ~Node() = default;
@@ -121,6 +138,7 @@ struct Identifier : Expression {
     Identifier() : Expression(NodeType::Identifier) {}
     Token token;
     std::string value;
+    mutable SymbolRef symbol {};
 
     [[nodiscard]] auto token_literal() const -> std::string override {
         return token.literal;
@@ -456,6 +474,7 @@ struct ExpressionStatement : Statement {
 struct Program : Node {
     Program() : Node(NodeType::Program) {}
     std::vector<std::unique_ptr<Statement>> statements {};
+    mutable bool symbols_resolved {false};
 
     [[nodiscard]] auto token_literal() const -> std::string override {
         if (statements.empty() || statements.front() == nullptr) {
@@ -483,6 +502,7 @@ struct LetStatement : Statement {
     Token token;
     Token name;
     std::unique_ptr<Expression> value;
+    mutable SymbolRef symbol;
 
     [[nodiscard]] auto token_literal() const -> std::string override {
         return token.literal;
@@ -544,6 +564,7 @@ struct ReturnStatement : Statement {
             auto clone = std::make_unique<Identifier>();
             clone->token = identifier.token;
             clone->value = identifier.value;
+            clone->symbol = identifier.symbol;
             return clone;
         }
         case NodeType::IntegerLiteral: {
@@ -645,6 +666,7 @@ struct ReturnStatement : Statement {
                     auto parameter_clone = std::make_unique<Identifier>();
                     parameter_clone->token = parameter->token;
                     parameter_clone->value = parameter->value;
+                    parameter_clone->symbol = parameter->symbol;
                     clone->parameters.push_back(std::move(parameter_clone));
                 }
             }
@@ -700,6 +722,7 @@ struct ReturnStatement : Statement {
             auto clone = std::make_unique<LetStatement>();
             clone->token = let_statement.token;
             clone->name = let_statement.name;
+            clone->symbol = let_statement.symbol;
             if (let_statement.value != nullptr) {
                 clone->value = clone_expression(*let_statement.value);
             }

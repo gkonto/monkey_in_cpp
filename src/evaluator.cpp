@@ -1,14 +1,238 @@
 #include "monkey/evaluator.hpp"
 #include "monkey/environment.hpp"
 
+#include <array>
 #include <functional>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 [[nodiscard]] auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Object>;
 
 namespace {
+
+constexpr std::array<std::string_view, 5> builtin_names {
+    "len",
+    "first",
+    "last",
+    "rest",
+    "push",
+};
+
+struct SymbolBinding {
+    SymbolRef symbol {};
+    bool ready {false};
+};
+
+struct SymbolTable {
+    SymbolTable* outer {nullptr};
+    std::unordered_map<std::string, SymbolBinding> bindings {};
+    std::size_t next_index {0};
+};
+
+void resolve_statement(const Statement* statement, SymbolTable& table);
+void resolve_expression(const Expression* expression, SymbolTable& table);
+
+[[nodiscard]] auto define_symbol(SymbolTable& table, std::string_view name) -> SymbolRef {
+    if (const auto existing = table.bindings.find(std::string(name));
+        existing != table.bindings.end() && existing->second.symbol.scope != SymbolScope::Builtin) {
+        return existing->second.symbol;
+    }
+
+    const auto scope = table.outer == nullptr ? SymbolScope::Global : SymbolScope::Local;
+    const auto symbol = SymbolRef {.scope = scope, .depth = 0, .index = table.next_index++};
+    table.bindings[std::string(name)] = SymbolBinding {.symbol = symbol, .ready = false};
+    return symbol;
+}
+
+void define_builtin(SymbolTable& table, std::string_view name, std::size_t index) {
+    table.bindings[std::string(name)] = SymbolBinding {
+        .symbol = SymbolRef {.scope = SymbolScope::Builtin, .depth = 0, .index = index},
+        .ready = true,
+    };
+}
+
+void mark_symbol_ready(SymbolTable& table, std::string_view name) {
+    if (const auto binding = table.bindings.find(std::string(name)); binding != table.bindings.end()) {
+        binding->second.ready = true;
+    }
+}
+
+[[nodiscard]] auto resolve_symbol(
+    const SymbolTable& table,
+    std::string_view name,
+    std::size_t depth = 0
+) -> std::optional<SymbolRef> {
+    if (const auto binding = table.bindings.find(std::string(name)); binding != table.bindings.end()) {
+        if (!binding->second.ready &&
+            binding->second.symbol.scope != SymbolScope::Builtin &&
+            depth == 0) {
+            if (table.outer != nullptr) {
+                return resolve_symbol(*table.outer, name, depth + 1);
+            }
+            return std::nullopt;
+        }
+
+        auto symbol = binding->second.symbol;
+        if (symbol.scope == SymbolScope::Local) {
+            symbol.depth = depth;
+        }
+        return symbol;
+    }
+
+    if (table.outer != nullptr) {
+        return resolve_symbol(*table.outer, name, depth + 1);
+    }
+
+    return std::nullopt;
+}
+
+void resolve_program(const Program* program) {
+    if (program == nullptr || program->symbols_resolved) {
+        return;
+    }
+
+    SymbolTable table {};
+    for (std::size_t index = 0; index < builtin_names.size(); ++index) {
+        define_builtin(table, builtin_names[index], index);
+    }
+
+    for (const auto& statement : program->statements) {
+        if (statement != nullptr) {
+            resolve_statement(statement.get(), table);
+        }
+    }
+
+    program->symbols_resolved = true;
+}
+
+void resolve_block_statement(const BlockStatement* block, SymbolTable& table) {
+    if (block == nullptr) {
+        return;
+    }
+
+    for (const auto& statement : block->statements) {
+        if (statement != nullptr) {
+            resolve_statement(statement.get(), table);
+        }
+    }
+}
+
+void resolve_statement(const Statement* statement, SymbolTable& table) {
+    if (statement == nullptr) {
+        return;
+    }
+
+    switch (statement->kind()) {
+        case NodeType::ExpressionStatement: {
+            const auto* expression_statement = static_cast<const ExpressionStatement*>(statement);
+            resolve_expression(expression_statement->expression.get(), table);
+            return;
+        }
+        case NodeType::LetStatement: {
+            const auto* let_statement = static_cast<const LetStatement*>(statement);
+            let_statement->symbol = define_symbol(table, let_statement->name.literal);
+            resolve_expression(let_statement->value.get(), table);
+            mark_symbol_ready(table, let_statement->name.literal);
+            return;
+        }
+        case NodeType::ReturnStatement: {
+            const auto* return_statement = static_cast<const ReturnStatement*>(statement);
+            resolve_expression(return_statement->return_value.get(), table);
+            return;
+        }
+        case NodeType::BlockStatement:
+            resolve_block_statement(static_cast<const BlockStatement*>(statement), table);
+            return;
+        default:
+            return;
+    }
+}
+
+void resolve_expression(const Expression* expression, SymbolTable& table) {
+    if (expression == nullptr) {
+        return;
+    }
+
+    switch (expression->kind()) {
+        case NodeType::Identifier: {
+            const auto* identifier = static_cast<const Identifier*>(expression);
+            identifier->symbol = resolve_symbol(table, identifier->value).value_or(SymbolRef {});
+            return;
+        }
+        case NodeType::ArrayLiteral: {
+            const auto* array = static_cast<const ArrayLiteral*>(expression);
+            for (const auto& element : array->elements) {
+                if (element != nullptr) {
+                    resolve_expression(element.get(), table);
+                }
+            }
+            return;
+        }
+        case NodeType::HashLiteral: {
+            const auto* hash = static_cast<const HashLiteral*>(expression);
+            for (const auto& [key, value] : hash->pairs) {
+                resolve_expression(key.get(), table);
+                resolve_expression(value.get(), table);
+            }
+            return;
+        }
+        case NodeType::PrefixExpression: {
+            const auto* prefix = static_cast<const PrefixExpression*>(expression);
+            resolve_expression(prefix->right.get(), table);
+            return;
+        }
+        case NodeType::InfixExpression: {
+            const auto* infix = static_cast<const InfixExpression*>(expression);
+            resolve_expression(infix->left.get(), table);
+            resolve_expression(infix->right.get(), table);
+            return;
+        }
+        case NodeType::IfExpression: {
+            const auto* if_expression = static_cast<const IfExpression*>(expression);
+            resolve_expression(if_expression->condition.get(), table);
+            resolve_block_statement(if_expression->consequence.get(), table);
+            resolve_block_statement(if_expression->alternative.get(), table);
+            return;
+        }
+        case NodeType::FunctionLiteral: {
+            const auto* function = static_cast<const FunctionLiteral*>(expression);
+            SymbolTable function_table {.outer = &table};
+
+            for (const auto& parameter : function->parameters) {
+                if (parameter != nullptr) {
+                    parameter->symbol = define_symbol(function_table, parameter->value);
+                    mark_symbol_ready(function_table, parameter->value);
+                }
+            }
+
+            resolve_block_statement(function->body.get(), function_table);
+            return;
+        }
+        case NodeType::CallExpression: {
+            const auto* call = static_cast<const CallExpression*>(expression);
+            resolve_expression(call->function.get(), table);
+            for (const auto& argument : call->arguments) {
+                if (argument != nullptr) {
+                    resolve_expression(argument.get(), table);
+                }
+            }
+            return;
+        }
+        case NodeType::IndexExpression: {
+            const auto* index = static_cast<const IndexExpression*>(expression);
+            resolve_expression(index->left.get(), table);
+            resolve_expression(index->index.get(), table);
+            return;
+        }
+        default:
+            return;
+    }
+}
 
 [[nodiscard]] auto eval_hash_index_expression(
     const Object* hash,
@@ -152,48 +376,20 @@ namespace {
     return std::make_shared<Object>(Object::make_array(std::move(elements)));
 }
 
-[[nodiscard]] auto get_builtin_by_name(std::string_view name) -> std::shared_ptr<Object> {
-    if (name == "len") {
-        static auto builtin = [] {
-            return std::make_shared<Object>(Object::make_builtin(builtin_len));
-        }();
+[[nodiscard]] auto get_builtin_by_index(std::size_t index) -> std::shared_ptr<Object> {
+    static const std::array<std::shared_ptr<Object>, builtin_names.size()> builtins {
+        std::make_shared<Object>(Object::make_builtin(builtin_len)),
+        std::make_shared<Object>(Object::make_builtin(builtin_first)),
+        std::make_shared<Object>(Object::make_builtin(builtin_last)),
+        std::make_shared<Object>(Object::make_builtin(builtin_rest)),
+        std::make_shared<Object>(Object::make_builtin(builtin_push)),
+    };
 
-        return builtin;
+    if (index >= builtins.size()) {
+        return nullptr;
     }
 
-    if (name == "first") {
-        static auto builtin = [] {
-            return std::make_shared<Object>(Object::make_builtin(builtin_first));
-        }();
-
-        return builtin;
-    }
-
-    if (name == "last") {
-        static auto builtin = [] {
-            return std::make_shared<Object>(Object::make_builtin(builtin_last));
-        }();
-
-        return builtin;
-    }
-
-    if (name == "rest") {
-        static auto builtin = [] {
-            return std::make_shared<Object>(Object::make_builtin(builtin_rest));
-        }();
-
-        return builtin;
-    }
-
-    if (name == "push") {
-        static auto builtin = [] {
-            return std::make_shared<Object>(Object::make_builtin(builtin_push));
-        }();
-
-        return builtin;
-    }
-
-    return nullptr;
+    return builtins[index];
 }
 
 [[nodiscard]] auto is_error(const std::shared_ptr<Object>& object) -> bool {
@@ -492,7 +688,7 @@ namespace {
     auto extended_environment = new_enclosed_environment(function->function_env());
     for (std::size_t index = 0; index < function->function_parameters().size(); ++index) {
         if (function->function_parameters()[index] != nullptr && index < arguments.size()) {
-            extended_environment->set(function->function_parameters()[index]->value, arguments[index]);
+            extended_environment->set_at(index, arguments[index]);
         }
     }
 
@@ -544,10 +740,32 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
                 return value;
             }
 
-            environment.set(statement->name.literal, value);
+            if (!statement->symbol.resolved()) {
+                return new_error("internal error: unresolved let binding");
+            }
+
+            switch (statement->symbol.scope) {
+                case SymbolScope::Global:
+                    environment.set_root_at(statement->symbol.index, value);
+                    break;
+                case SymbolScope::Local:
+                    environment.set_at(statement->symbol.index, value);
+                    break;
+                default:
+                    return new_error("internal error: invalid let symbol scope");
+            }
 
             if (value->type() == ObjectType::Function) {
-                value->function_env_mut()->set(statement->name.literal, value);
+                switch (statement->symbol.scope) {
+                    case SymbolScope::Global:
+                        value->function_env_mut()->set_root_at(statement->symbol.index, value);
+                        break;
+                    case SymbolScope::Local:
+                        value->function_env_mut()->set_at(statement->symbol.index, value);
+                        break;
+                    default:
+                        return new_error("internal error: invalid function symbol scope");
+                }
             }
 
             return nullObject();
@@ -612,14 +830,32 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
         }
         case NodeType::Identifier: {
             const auto* identifier = static_cast<const Identifier*>(node);
-            const auto value = environment.get(identifier->value);
-            if (value != nullptr) {
-                return value;
-            }
-
-            const auto builtin = get_builtin_by_name(identifier->value);
-            if (builtin != nullptr) {
-                return builtin;
+            if (identifier->symbol.resolved()) {
+                switch (identifier->symbol.scope) {
+                    case SymbolScope::Global: {
+                        const auto value = environment.get_root_at(identifier->symbol.index);
+                        if (value != nullptr) {
+                            return value;
+                        }
+                        break;
+                    }
+                    case SymbolScope::Local: {
+                        const auto value = environment.get_at(identifier->symbol.depth, identifier->symbol.index);
+                        if (value != nullptr) {
+                            return value;
+                        }
+                        break;
+                    }
+                    case SymbolScope::Builtin: {
+                        const auto builtin = get_builtin_by_index(identifier->symbol.index);
+                        if (builtin != nullptr) {
+                            return builtin;
+                        }
+                        break;
+                    }
+                    case SymbolScope::Unresolved:
+                        break;
+                }
             }
 
             return new_error("identifier not found: " + identifier->value);
@@ -677,10 +913,19 @@ auto eval_node(const Node* node, Environment& environment) -> std::shared_ptr<Ob
 }
 
 auto eval(const Node* node, Environment& environment) -> std::shared_ptr<Object> {
+    if (node != nullptr && node->kind() == NodeType::Program) {
+        resolve_program(static_cast<const Program*>(node));
+    }
+
     return eval_node(node, environment);
 }
 
 auto eval(const Node* node) -> std::shared_ptr<Object> {
     Environment environment;
+
+    if (node != nullptr && node->kind() == NodeType::Program) {
+        resolve_program(static_cast<const Program*>(node));
+    }
+
     return eval_node(node, environment);
 }

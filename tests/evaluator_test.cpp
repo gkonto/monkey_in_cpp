@@ -258,6 +258,16 @@ TEST_CASE("TestLetStatements", "[evaluator]") {
     }
 }
 
+TEST_CASE("TestShadowedLetInitializerUsesOuterBinding", "[evaluator]") {
+    constexpr auto input =
+        "let a = 1;\n"
+        "let f = fn() { let a = a; a; };\n"
+        "f();";
+
+    const auto evaluated = test_eval(input);
+    test_integer_object(evaluated.get(), 1);
+}
+
 TEST_CASE("TestFunctionObject", "[evaluator]") {
     constexpr auto input = "fn(x) { x + 2; };";
 
@@ -303,6 +313,24 @@ TEST_CASE("TestClosures", "[evaluator]") {
     test_integer_object(evaluated.get(), 4);
 }
 
+TEST_CASE("TestRecursiveLocalFunction", "[evaluator]") {
+    constexpr auto input =
+        "let wrapper = fn() {\n"
+        "  let countDown = fn(x) {\n"
+        "    if (x == 0) {\n"
+        "      0\n"
+        "    } else {\n"
+        "      countDown(x - 1);\n"
+        "    }\n"
+        "  };\n"
+        "  countDown(3);\n"
+        "};\n"
+        "wrapper();";
+
+    const auto evaluated = test_eval(input);
+    test_integer_object(evaluated.get(), 0);
+}
+
 TEST_CASE("TestStringLiteral", "[evaluator]") {
     constexpr auto input = "\"hello world\"";
 
@@ -334,6 +362,7 @@ TEST_CASE("TestBuiltinFunctions", "[evaluator]") {
         {"len(\"\")", std::int64_t {0}},
         {"len(\"four\")", std::int64_t {4}},
         {"len(\"hello world\")", std::int64_t {11}},
+        {"let f = fn() { len(\"abc\"); }; f();", std::int64_t {3}},
         {"len([1, 2, 3])", std::int64_t {3}},
         {"len(1)", std::string_view {"argument to `len` not supported, got Integer"}},
         {
