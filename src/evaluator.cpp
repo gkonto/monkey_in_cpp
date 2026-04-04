@@ -4,8 +4,29 @@
 
 namespace {
 
-[[nodiscard]] auto eval_program(const Program* program) -> std::unique_ptr<Object> {
-    std::unique_ptr<Object> result {};
+[[nodiscard]] auto nativeBoolToBooleanObject(bool input) -> std::shared_ptr<Object> {
+    static auto true_object = [] {
+        auto object = std::make_shared<BooleanObject>();
+        object->value = true;
+        return object;
+    }();
+
+    static auto false_object = [] {
+        auto object = std::make_shared<BooleanObject>();
+        object->value = false;
+        return object;
+    }();
+
+    return input ? true_object : false_object;
+}
+
+[[nodiscard]] auto nullObject() -> std::shared_ptr<Object> {
+    static auto null_object = std::make_shared<NullObject>();
+    return null_object;
+}
+
+[[nodiscard]] auto eval_program(const Program* program) -> std::shared_ptr<Object> {
+    auto result = nullObject();
 
     for (const auto& statement : program->statements) {
         result = eval(statement.get());
@@ -16,9 +37,9 @@ namespace {
 
 }  // namespace
 
-auto eval(const Node* node) -> std::unique_ptr<Object> {
+auto eval(const Node* node) -> std::shared_ptr<Object> {
     if (node == nullptr) {
-        return nullptr;
+        return nullObject();
     }
 
     if (const auto* program = dynamic_cast<const Program*>(node); program != nullptr) {
@@ -30,10 +51,14 @@ auto eval(const Node* node) -> std::unique_ptr<Object> {
     }
 
     if (const auto* integer_literal = dynamic_cast<const IntegerLiteral*>(node); integer_literal != nullptr) {
-        auto integer = std::make_unique<IntegerObject>();
+        auto integer = std::make_shared<IntegerObject>();
         integer->value = integer_literal->value;
         return integer;
     }
 
-    return nullptr;
+    if (const auto* boolean = dynamic_cast<const Boolean*>(node); boolean != nullptr) {
+        return nativeBoolToBooleanObject(boolean->value);
+    }
+
+    return nullObject();
 }
