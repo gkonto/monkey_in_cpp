@@ -21,6 +21,57 @@ constexpr std::array<std::string_view, 5> builtin_names {
     "push",
 };
 
+struct EvalArguments {
+    static constexpr std::size_t inline_capacity = 2;
+
+    std::array<Value, inline_capacity> inline_values {};
+    std::vector<Value> overflow {};
+    std::size_t count {0};
+
+    void reserve(std::size_t expected_size) {
+        if (expected_size > inline_capacity) {
+            overflow.reserve(expected_size - inline_capacity);
+        }
+    }
+
+    void push_back(Value value) {
+        if (count < inline_capacity) {
+            inline_values[count] = value;
+        } else {
+            overflow.push_back(value);
+        }
+
+        ++count;
+    }
+
+    [[nodiscard]] auto size() const -> std::size_t {
+        return count;
+    }
+
+    [[nodiscard]] auto operator[](std::size_t index) const -> const Value& {
+        if (index < inline_capacity) {
+            return inline_values[index];
+        }
+
+        return overflow[index - inline_capacity];
+    }
+
+    [[nodiscard]] auto has_single_error() const -> bool {
+        return count == 1 && (*this)[0].type() == ObjectType::Error;
+    }
+
+    [[nodiscard]] auto materialize() const -> std::vector<Value> {
+        std::vector<Value> values;
+        values.reserve(count);
+
+        for (std::size_t index = 0; index < count; ++index) {
+            values.push_back((*this)[index]);
+        }
+
+        return values;
+    }
+};
+
 struct SymbolBinding {
     SymbolRef symbol {};
     bool ready {false};
@@ -723,11 +774,11 @@ void resolve_expression(const Expression* expression, SymbolTable& table) {
 
 [[nodiscard]] auto apply_function(
     const Value& function,
-    const std::vector<Value>& arguments,
+    const EvalArguments& arguments,
     ScratchArena& scratch
 ) -> Value {
     if (function.type() == ObjectType::Builtin) {
-        return function.heap_object()->builtin_function()(scratch, arguments);
+        return function.heap_object()->builtin_function()(scratch, arguments.materialize());
     }
 
     if (function.type() != ObjectType::Function) {
@@ -762,14 +813,16 @@ void resolve_expression(const Expression* expression, SymbolTable& table) {
     const std::vector<std::unique_ptr<Expression>>& expressions,
     Environment& environment,
     ScratchArena& scratch
-) -> std::vector<Value> {
-    std::vector<Value> result;
+) -> EvalArguments {
+    EvalArguments result;
     result.reserve(expressions.size());
 
     for (const auto& expression : expressions) {
         auto evaluated = eval_node(expression.get(), environment, scratch);
         if (is_error(evaluated)) {
-            return {evaluated};
+            EvalArguments error_result;
+            error_result.push_back(evaluated);
+            return error_result;
         }
 
         result.push_back(evaluated);
@@ -879,7 +932,7 @@ auto eval_node(const Node* node, Environment& environment, ScratchArena& scratch
             }
 
             const auto arguments = eval_expressions(call_expression->arguments, environment, scratch);
-            if (arguments.size() == 1 && is_error(arguments[0])) {
+            if (arguments.has_single_error()) {
                 return arguments[0];
             }
 
@@ -949,10 +1002,10 @@ auto eval_node(const Node* node, Environment& environment, ScratchArena& scratch
         case NodeType::ArrayLiteral: {
             const auto* array_literal = static_cast<const ArrayLiteral*>(node);
             const auto elements = eval_expressions(array_literal->elements, environment, scratch);
-            if (elements.size() == 1 && is_error(elements[0])) {
+            if (elements.has_single_error()) {
                 return elements[0];
             }
-            return scratch.allocate_array(elements);
+            return scratch.allocate_array(elements.materialize());
         }
         case NodeType::HashLiteral:
             return eval_hash_literal(static_cast<const HashLiteral*>(node), environment, scratch);
