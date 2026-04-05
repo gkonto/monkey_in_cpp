@@ -738,20 +738,24 @@ void resolve_expression(const Expression* expression, SymbolTable& table) {
     }
 
     auto* function_environment = function.heap_object()->function_env();
-    auto* extended_environment = new_enclosed_environment(function_environment->store(), function_environment);
+    Environment extended_environment {
+        function_environment->store(),
+        function_environment,
+        EnvironmentLifetime::Temporary,
+    };
 
     for (std::size_t index = 0; index < function.heap_object()->function_parameters().size(); ++index) {
         if (index < arguments.size()) {
-            extended_environment->set_at(index, promote(arguments[index], extended_environment->store()));
+            extended_environment.set_at(index, arguments[index]);
         }
     }
 
-    auto evaluated = eval_node(function.heap_object()->function_body(), *extended_environment, scratch);
+    auto evaluated = eval_node(function.heap_object()->function_body(), extended_environment, scratch);
     if (evaluated.type() == ObjectType::ReturnValue) {
-        return evaluated.heap_object()->return_value();
+        evaluated = evaluated.heap_object()->return_value();
     }
 
-    return evaluated;
+    return promote(evaluated, function_environment->store());
 }
 
 [[nodiscard]] auto eval_expressions(
@@ -799,31 +803,35 @@ auto eval_node(const Node* node, Environment& environment, ScratchArena& scratch
                 return new_error(scratch, "internal error: unresolved let binding");
             }
 
-            const auto persistent_value = promote(value, environment.store());
+            auto stored_value = value;
 
             switch (statement->symbol.scope) {
                 case SymbolScope::Global:
-                    environment.set_root_at(statement->symbol.index, persistent_value);
+                    stored_value = promote(value, environment.store());
+                    environment.set_root_at(statement->symbol.index, stored_value);
                     break;
                 case SymbolScope::Local:
-                    environment.set_at(statement->symbol.index, persistent_value);
+                    if (environment.is_persistent()) {
+                        stored_value = promote(value, environment.store());
+                    }
+                    environment.set_at(statement->symbol.index, stored_value);
                     break;
                 default:
                     return new_error(scratch, "internal error: invalid let symbol scope");
             }
 
-            if (persistent_value.type() == ObjectType::Function) {
+            if (stored_value.type() == ObjectType::Function) {
                 switch (statement->symbol.scope) {
                     case SymbolScope::Global:
-                        persistent_value.heap_object_mut()->function_env_mut()->set_root_at(
+                        stored_value.heap_object_mut()->function_env_mut()->set_root_at(
                             statement->symbol.index,
-                            persistent_value
+                            stored_value
                         );
                         break;
                     case SymbolScope::Local:
-                        persistent_value.heap_object_mut()->function_env_mut()->set_at(
+                        stored_value.heap_object_mut()->function_env_mut()->set_at(
                             statement->symbol.index,
-                            persistent_value
+                            stored_value
                         );
                         break;
                     default:

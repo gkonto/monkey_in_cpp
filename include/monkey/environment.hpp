@@ -5,10 +5,19 @@
 
 #include "monkey/object.hpp"
 
+enum class EnvironmentLifetime {
+    Temporary,
+    Persistent,
+};
+
 class Environment {
 public:
-    explicit Environment(PersistentStore& store, Environment* outer = nullptr)
-        : store_(&store), outer_(outer) {}
+    explicit Environment(
+        PersistentStore& store,
+        Environment* outer = nullptr,
+        EnvironmentLifetime lifetime = EnvironmentLifetime::Persistent
+    )
+        : store_(&store), outer_(outer), lifetime_(lifetime) {}
 
     void set_at(std::size_t slot, Value value) {
         if (slot >= slots_.size()) {
@@ -60,6 +69,30 @@ public:
         return outer_;
     }
 
+    [[nodiscard]] auto lifetime() const -> EnvironmentLifetime {
+        return lifetime_;
+    }
+
+    [[nodiscard]] auto is_persistent() const -> bool {
+        return lifetime_ == EnvironmentLifetime::Persistent;
+    }
+
+    [[nodiscard]] auto slot_count() const -> std::size_t {
+        return slots_.size();
+    }
+
+    [[nodiscard]] auto slot_value(std::size_t slot) const -> const Value& {
+        return slots_[slot];
+    }
+
+    [[nodiscard]] auto promoted_copy() const -> Environment* {
+        return promoted_copy_;
+    }
+
+    void set_promoted_copy(Environment* copy) const {
+        promoted_copy_ = copy;
+    }
+
     [[nodiscard]] auto store() const -> PersistentStore& {
         return *store_;
     }
@@ -67,11 +100,13 @@ public:
 private:
     PersistentStore* store_ {nullptr};
     Environment* outer_ {nullptr};
+    EnvironmentLifetime lifetime_ {EnvironmentLifetime::Persistent};
+    mutable Environment* promoted_copy_ {nullptr};
     std::vector<Value> slots_ {};
 };
 
 [[nodiscard]] inline auto PersistentStore::create_environment(Environment* outer) -> Environment* {
-    return emplace<Environment>(*this, outer);
+    return emplace<Environment>(*this, outer, EnvironmentLifetime::Persistent);
 }
 
 [[nodiscard]] inline auto new_enclosed_environment(PersistentStore& store, Environment* outer)

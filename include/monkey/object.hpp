@@ -208,6 +208,7 @@ struct Object {
     ObjectLifetime lifetime {ObjectLifetime::Standalone};
     std::int64_t integer {0};
     bool boolean {false};
+    mutable Object* promoted_copy {nullptr};
     ObjectPayload payload;
 
     Object() = default;
@@ -241,6 +242,14 @@ struct Object {
 
     [[nodiscard]] auto is_persistent() const -> bool {
         return lifetime == ObjectLifetime::Persistent || lifetime == ObjectLifetime::Static;
+    }
+
+    [[nodiscard]] auto promoted_copy_cached() const -> Object* {
+        return promoted_copy;
+    }
+
+    void set_promoted_copy(Object* copy) const {
+        promoted_copy = copy;
     }
 
     [[nodiscard]] auto inspect() const -> std::string {
@@ -526,6 +535,7 @@ private:
         lifetime = ObjectLifetime::Standalone;
         integer = 0;
         boolean = false;
+        promoted_copy = nullptr;
     }
 
     void move_from(Object&& other) {
@@ -533,6 +543,7 @@ private:
         lifetime = other.lifetime;
         integer = other.integer;
         boolean = other.boolean;
+        promoted_copy = other.promoted_copy;
 
         switch (other.object_type) {
             case ObjectType::String:
@@ -828,68 +839,5 @@ struct DetachedValue {
     return parameters;
 }
 
-[[nodiscard]] inline auto promote(Value value, PersistentStore& store) -> Value {
-    if (value.is_immediate()) {
-        return value;
-    }
-
-    auto* object = value.heap_object_mut();
-    if (object == nullptr) {
-        return Value::make_null();
-    }
-
-    if (object->is_persistent()) {
-        return value;
-    }
-
-    switch (object->type()) {
-        case ObjectType::String:
-            return store.allocate_string(object->string_value());
-        case ObjectType::Array: {
-            std::vector<Value> elements;
-            elements.reserve(object->array_elements().size());
-            for (const auto& element : object->array_elements()) {
-                elements.push_back(promote(element, store));
-            }
-            return store.allocate_array(std::move(elements));
-        }
-        case ObjectType::Hash: {
-            std::unordered_map<HashKey, HashPair, HashKeyHasher> pairs;
-            for (const auto& [key, pair] : object->hash_pairs()) {
-                pairs.emplace(key, HashPair {
-                    promote(pair.key, store),
-                    promote(pair.value, store),
-                });
-            }
-            return store.allocate_hash(std::move(pairs));
-        }
-        case ObjectType::ReturnValue:
-            return store.allocate_return(promote(object->return_value(), store));
-        case ObjectType::Error:
-            return store.allocate_error(object->error_message());
-        case ObjectType::Function:
-            return store.allocate_function(
-                clone_function_parameters(*object),
-                object->function_body() != nullptr
-                    ? clone_block_statement(*object->function_body())
-                    : nullptr,
-                object->function_env()
-            );
-        case ObjectType::Builtin:
-            return store.allocate_builtin(object->builtin_function());
-        case ObjectType::Integer:
-            return Value::make_integer(object->integer_value());
-        case ObjectType::Boolean:
-            return Value::make_boolean(object->boolean_value());
-        case ObjectType::Null:
-            return Value::make_null();
-    }
-
-    return Value::make_null();
-}
-
-[[nodiscard]] inline auto detach(Value value) -> DetachedValue {
-    auto store = std::make_unique<PersistentStore>();
-    auto detached = promote(value, *store);
-    return DetachedValue {std::move(store), detached};
-}
+[[nodiscard]] auto promote(Value value, PersistentStore& store) -> Value;
+[[nodiscard]] auto detach(Value value) -> DetachedValue;

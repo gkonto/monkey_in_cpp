@@ -58,6 +58,7 @@ enable_testing()
 add_library(monkey_lib
     src/evaluator.cpp
     src/lexer.cpp
+    src/object.cpp
     src/parser.cpp
 )
 
