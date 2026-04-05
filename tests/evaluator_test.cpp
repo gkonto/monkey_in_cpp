@@ -11,7 +11,7 @@
 
 namespace {
 
-auto test_eval(std::string_view input) -> std::shared_ptr<Object> {
+auto test_eval(std::string_view input) -> DetachedValue {
     auto lexer = Lexer {input};
     auto parser = Parser {lexer};
     const auto program = parser.parse_program();
@@ -20,34 +20,29 @@ auto test_eval(std::string_view input) -> std::shared_ptr<Object> {
     return eval(&program);
 }
 
-void test_integer_object(const Object* object, std::int64_t expected_value) {
-    REQUIRE(object != nullptr);
-    REQUIRE(object->type() == ObjectType::Integer);
-    REQUIRE(object->integer_value() == expected_value);
+void test_integer_object(const Value& value, std::int64_t expected_value) {
+    REQUIRE(value.type() == ObjectType::Integer);
+    REQUIRE(value.integer_value() == expected_value);
 }
 
-void test_boolean_object(const Object* object, bool expected_value) {
-    REQUIRE(object != nullptr);
-    REQUIRE(object->type() == ObjectType::Boolean);
-    REQUIRE(object->boolean_value() == expected_value);
+void test_boolean_object(const Value& value, bool expected_value) {
+    REQUIRE(value.type() == ObjectType::Boolean);
+    REQUIRE(value.boolean_value() == expected_value);
 }
 
-void test_string_object(const Object* object, std::string_view expected_value) {
-    REQUIRE(object != nullptr);
-    REQUIRE(object->type() == ObjectType::String);
-    REQUIRE(object->string_value() == expected_value);
+void test_string_object(const Value& value, std::string_view expected_value) {
+    REQUIRE(value.type() == ObjectType::String);
+    REQUIRE(value.heap_object() != nullptr);
+    REQUIRE(value.heap_object()->string_value() == expected_value);
 }
 
-void test_integer_array_object(
-    const Object* object,
-    const std::vector<std::int64_t>& expected_elements
-) {
-    REQUIRE(object != nullptr);
-    REQUIRE(object->type() == ObjectType::Array);
-    REQUIRE(object->array_elements().size() == expected_elements.size());
+void test_integer_array_object(const Value& value, const std::vector<std::int64_t>& expected_elements) {
+    REQUIRE(value.type() == ObjectType::Array);
+    REQUIRE(value.heap_object() != nullptr);
+    REQUIRE(value.heap_object()->array_elements().size() == expected_elements.size());
 
     for (std::size_t index = 0; index < expected_elements.size(); ++index) {
-        test_integer_object(object->array_elements()[index].get(), expected_elements[index]);
+        test_integer_object(value.heap_object()->array_elements()[index], expected_elements[index]);
     }
 }
 
@@ -55,16 +50,15 @@ auto hash_key_for_test(const Object* object) -> std::optional<HashKey> {
     return object != nullptr ? object->hash_key() : std::nullopt;
 }
 
-void test_null_object(const Object* object) {
-    REQUIRE(object != nullptr);
-    REQUIRE(object->type() == ObjectType::Null);
-    REQUIRE(object->inspect() == "null");
+void test_null_object(const Value& value) {
+    REQUIRE(value.type() == ObjectType::Null);
+    REQUIRE(value.inspect() == "null");
 }
 
-void test_error_object(const Object* object, std::string_view expected_message) {
-    REQUIRE(object != nullptr);
-    REQUIRE(object->type() == ObjectType::Error);
-    REQUIRE(object->error_message() == expected_message);
+void test_error_object(const Value& value, std::string_view expected_message) {
+    REQUIRE(value.type() == ObjectType::Error);
+    REQUIRE(value.heap_object() != nullptr);
+    REQUIRE(value.heap_object()->error_message() == expected_message);
 }
 
 }  // namespace
@@ -95,7 +89,7 @@ TEST_CASE("TestEvalIntegerExpression", "[evaluator]") {
 
     for (const auto& test_case : test_cases) {
         const auto evaluated = test_eval(test_case.input);
-        test_integer_object(evaluated.get(), test_case.expected);
+        test_integer_object(evaluated.value, test_case.expected);
     }
 }
 
@@ -128,13 +122,13 @@ TEST_CASE("TestEvalBooleanExpression", "[evaluator]") {
 
     for (const auto& test_case : test_cases) {
         const auto evaluated = test_eval(test_case.input);
-        test_boolean_object(evaluated.get(), test_case.expected);
+        test_boolean_object(evaluated.value, test_case.expected);
     }
 }
 
 TEST_CASE("TestEvalNullExpression", "[evaluator]") {
     const auto evaluated = test_eval("");
-    test_null_object(evaluated.get());
+    test_null_object(evaluated.value);
 }
 
 TEST_CASE("TestBangOperator", "[evaluator]") {
@@ -154,7 +148,7 @@ TEST_CASE("TestBangOperator", "[evaluator]") {
 
     for (const auto& test_case : test_cases) {
         const auto evaluated = test_eval(test_case.input);
-        test_boolean_object(evaluated.get(), test_case.expected);
+        test_boolean_object(evaluated.value, test_case.expected);
     }
 }
 
@@ -183,9 +177,9 @@ TEST_CASE("TestIfElseExpressions", "[evaluator]") {
             using ExpectedType = std::decay_t<decltype(expected)>;
 
             if constexpr (std::is_same_v<ExpectedType, std::int64_t>) {
-                test_integer_object(evaluated.get(), expected);
+                test_integer_object(evaluated.value, expected);
             } else {
-                test_null_object(evaluated.get());
+                test_null_object(evaluated.value);
             }
         }, test_case.expected);
     }
@@ -207,7 +201,7 @@ TEST_CASE("TestReturnStatements", "[evaluator]") {
 
     for (const auto& test_case : test_cases) {
         const auto evaluated = test_eval(test_case.input);
-        test_integer_object(evaluated.get(), test_case.expected);
+        test_integer_object(evaluated.value, test_case.expected);
     }
 }
 
@@ -235,7 +229,7 @@ TEST_CASE("TestErrorHandling", "[evaluator]") {
 
     for (const auto& test_case : test_cases) {
         const auto evaluated = test_eval(test_case.input);
-        test_error_object(evaluated.get(), test_case.expected_message);
+        test_error_object(evaluated.value, test_case.expected_message);
     }
 }
 
@@ -254,7 +248,7 @@ TEST_CASE("TestLetStatements", "[evaluator]") {
 
     for (const auto& test_case : test_cases) {
         const auto evaluated = test_eval(test_case.input);
-        test_integer_object(evaluated.get(), test_case.expected);
+        test_integer_object(evaluated.value, test_case.expected);
     }
 }
 
@@ -265,21 +259,20 @@ TEST_CASE("TestShadowedLetInitializerUsesOuterBinding", "[evaluator]") {
         "f();";
 
     const auto evaluated = test_eval(input);
-    test_integer_object(evaluated.get(), 1);
+    test_integer_object(evaluated.value, 1);
 }
 
 TEST_CASE("TestFunctionObject", "[evaluator]") {
     constexpr auto input = "fn(x) { x + 2; };";
 
     const auto evaluated = test_eval(input);
-    REQUIRE(evaluated != nullptr);
-
-    REQUIRE(evaluated->type() == ObjectType::Function);
-    REQUIRE(evaluated->function_parameters().size() == 1);
-    REQUIRE(evaluated->function_parameters()[0] != nullptr);
-    REQUIRE(evaluated->function_parameters()[0]->as_string() == "x");
-    REQUIRE(evaluated->function_body() != nullptr);
-    REQUIRE(evaluated->function_body()->as_string() == "(x + 2)");
+    REQUIRE(evaluated.value.type() == ObjectType::Function);
+    REQUIRE(evaluated.value.heap_object() != nullptr);
+    REQUIRE(evaluated.value.heap_object()->function_parameters().size() == 1);
+    REQUIRE(evaluated.value.heap_object()->function_parameters()[0] != nullptr);
+    REQUIRE(evaluated.value.heap_object()->function_parameters()[0]->as_string() == "x");
+    REQUIRE(evaluated.value.heap_object()->function_body() != nullptr);
+    REQUIRE(evaluated.value.heap_object()->function_body()->as_string() == "(x + 2)");
 }
 
 TEST_CASE("TestFunctionApplication", "[evaluator]") {
@@ -299,7 +292,7 @@ TEST_CASE("TestFunctionApplication", "[evaluator]") {
 
     for (const auto& test_case : test_cases) {
         const auto evaluated = test_eval(test_case.input);
-        test_integer_object(evaluated.get(), test_case.expected);
+        test_integer_object(evaluated.value, test_case.expected);
     }
 }
 
@@ -310,7 +303,7 @@ TEST_CASE("TestClosures", "[evaluator]") {
         "addTwo(2);";
 
     const auto evaluated = test_eval(input);
-    test_integer_object(evaluated.get(), 4);
+    test_integer_object(evaluated.value, 4);
 }
 
 TEST_CASE("TestRecursiveLocalFunction", "[evaluator]") {
@@ -328,21 +321,21 @@ TEST_CASE("TestRecursiveLocalFunction", "[evaluator]") {
         "wrapper();";
 
     const auto evaluated = test_eval(input);
-    test_integer_object(evaluated.get(), 0);
+    test_integer_object(evaluated.value, 0);
 }
 
 TEST_CASE("TestStringLiteral", "[evaluator]") {
     constexpr auto input = "\"hello world\"";
 
     const auto evaluated = test_eval(input);
-    test_string_object(evaluated.get(), "hello world");
+    test_string_object(evaluated.value, "hello world");
 }
 
 TEST_CASE("TestStringConcatenation", "[evaluator]") {
     constexpr auto input = "\"Hello\" + \" \" + \"World!\"";
 
     const auto evaluated = test_eval(input);
-    test_string_object(evaluated.get(), "Hello World!");
+    test_string_object(evaluated.value, "Hello World!");
 }
 
 TEST_CASE("TestBuiltinFunctions", "[evaluator]") {
@@ -394,13 +387,13 @@ TEST_CASE("TestBuiltinFunctions", "[evaluator]") {
             using ExpectedType = std::decay_t<decltype(expected)>;
 
             if constexpr (std::is_same_v<ExpectedType, std::int64_t>) {
-                test_integer_object(evaluated.get(), expected);
+                test_integer_object(evaluated.value, expected);
             } else if constexpr (std::is_same_v<ExpectedType, std::monostate>) {
-                test_null_object(evaluated.get());
+                test_null_object(evaluated.value);
             } else if constexpr (std::is_same_v<ExpectedType, std::vector<std::int64_t>>) {
-                test_integer_array_object(evaluated.get(), expected);
+                test_integer_array_object(evaluated.value, expected);
             } else {
-                test_error_object(evaluated.get(), expected);
+                test_error_object(evaluated.value, expected);
             }
         }, test_case.expected);
     }
@@ -410,14 +403,13 @@ TEST_CASE("TestArrayLiterals", "[evaluator]") {
     constexpr auto input = "[1, 2 * 2, 3 + 3]";
 
     const auto evaluated = test_eval(input);
-    REQUIRE(evaluated != nullptr);
+    REQUIRE(evaluated.value.type() == ObjectType::Array);
+    REQUIRE(evaluated.value.heap_object() != nullptr);
+    REQUIRE(evaluated.value.heap_object()->array_elements().size() == 3);
 
-    REQUIRE(evaluated->type() == ObjectType::Array);
-    REQUIRE(evaluated->array_elements().size() == 3);
-
-    test_integer_object(evaluated->array_elements()[0].get(), 1);
-    test_integer_object(evaluated->array_elements()[1].get(), 4);
-    test_integer_object(evaluated->array_elements()[2].get(), 6);
+    test_integer_object(evaluated.value.heap_object()->array_elements()[0], 1);
+    test_integer_object(evaluated.value.heap_object()->array_elements()[1], 4);
+    test_integer_object(evaluated.value.heap_object()->array_elements()[2], 6);
 }
 
 TEST_CASE("TestArrayIndexExpressions", "[evaluator]") {
@@ -448,9 +440,9 @@ TEST_CASE("TestArrayIndexExpressions", "[evaluator]") {
             using ExpectedType = std::decay_t<decltype(expected)>;
 
             if constexpr (std::is_same_v<ExpectedType, std::int64_t>) {
-                test_integer_object(evaluated.get(), expected);
+                test_integer_object(evaluated.value, expected);
             } else {
-                test_null_object(evaluated.get());
+                test_null_object(evaluated.value);
             }
         }, test_case.expected);
     }
@@ -460,10 +452,9 @@ TEST_CASE("TestHashLiterals", "[evaluator]") {
     constexpr auto input = "{\"one\": 10 - 9, \"two\": 1 + 1, \"three\": 6 / 2, 4: 4, true: 5, false: 6}";
 
     const auto evaluated = test_eval(input);
-    REQUIRE(evaluated != nullptr);
-
-    REQUIRE(evaluated->type() == ObjectType::Hash);
-    REQUIRE(evaluated->hash_pairs().size() == 6);
+    REQUIRE(evaluated.value.type() == ObjectType::Hash);
+    REQUIRE(evaluated.value.heap_object() != nullptr);
+    REQUIRE(evaluated.value.heap_object()->hash_pairs().size() == 6);
 
     auto one = Object::make_string("one");
     auto two = Object::make_string("two");
@@ -472,26 +463,26 @@ TEST_CASE("TestHashLiterals", "[evaluator]") {
     auto true_value = Object::make_boolean(true);
     auto false_value = Object::make_boolean(false);
 
-    const auto one_iterator = evaluated->hash_pairs().find(*hash_key_for_test(&one));
-    const auto two_iterator = evaluated->hash_pairs().find(*hash_key_for_test(&two));
-    const auto three_iterator = evaluated->hash_pairs().find(*hash_key_for_test(&three));
-    const auto four_iterator = evaluated->hash_pairs().find(*hash_key_for_test(&four));
-    const auto true_iterator = evaluated->hash_pairs().find(*hash_key_for_test(&true_value));
-    const auto false_iterator = evaluated->hash_pairs().find(*hash_key_for_test(&false_value));
+    const auto one_iterator = evaluated.value.heap_object()->hash_pairs().find(*hash_key_for_test(&one));
+    const auto two_iterator = evaluated.value.heap_object()->hash_pairs().find(*hash_key_for_test(&two));
+    const auto three_iterator = evaluated.value.heap_object()->hash_pairs().find(*hash_key_for_test(&three));
+    const auto four_iterator = evaluated.value.heap_object()->hash_pairs().find(*hash_key_for_test(&four));
+    const auto true_iterator = evaluated.value.heap_object()->hash_pairs().find(*hash_key_for_test(&true_value));
+    const auto false_iterator = evaluated.value.heap_object()->hash_pairs().find(*hash_key_for_test(&false_value));
 
-    REQUIRE(one_iterator != evaluated->hash_pairs().end());
-    REQUIRE(two_iterator != evaluated->hash_pairs().end());
-    REQUIRE(three_iterator != evaluated->hash_pairs().end());
-    REQUIRE(four_iterator != evaluated->hash_pairs().end());
-    REQUIRE(true_iterator != evaluated->hash_pairs().end());
-    REQUIRE(false_iterator != evaluated->hash_pairs().end());
+    REQUIRE(one_iterator != evaluated.value.heap_object()->hash_pairs().end());
+    REQUIRE(two_iterator != evaluated.value.heap_object()->hash_pairs().end());
+    REQUIRE(three_iterator != evaluated.value.heap_object()->hash_pairs().end());
+    REQUIRE(four_iterator != evaluated.value.heap_object()->hash_pairs().end());
+    REQUIRE(true_iterator != evaluated.value.heap_object()->hash_pairs().end());
+    REQUIRE(false_iterator != evaluated.value.heap_object()->hash_pairs().end());
 
-    test_integer_object(one_iterator->second.value.get(), 1);
-    test_integer_object(two_iterator->second.value.get(), 2);
-    test_integer_object(three_iterator->second.value.get(), 3);
-    test_integer_object(four_iterator->second.value.get(), 4);
-    test_integer_object(true_iterator->second.value.get(), 5);
-    test_integer_object(false_iterator->second.value.get(), 6);
+    test_integer_object(one_iterator->second.value, 1);
+    test_integer_object(two_iterator->second.value, 2);
+    test_integer_object(three_iterator->second.value, 3);
+    test_integer_object(four_iterator->second.value, 4);
+    test_integer_object(true_iterator->second.value, 5);
+    test_integer_object(false_iterator->second.value, 6);
 }
 
 TEST_CASE("TestHashIndexExpressions", "[evaluator]") {
@@ -519,9 +510,9 @@ TEST_CASE("TestHashIndexExpressions", "[evaluator]") {
             using ExpectedType = std::decay_t<decltype(expected)>;
 
             if constexpr (std::is_same_v<ExpectedType, std::int64_t>) {
-                test_integer_object(evaluated.get(), expected);
+                test_integer_object(evaluated.value, expected);
             } else {
-                test_null_object(evaluated.get());
+                test_null_object(evaluated.value);
             }
         }, test_case.expected);
     }

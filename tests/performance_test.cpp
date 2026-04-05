@@ -11,7 +11,7 @@
 
 namespace {
 
-auto test_eval(std::string_view input) -> std::shared_ptr<Object> {
+auto test_eval(std::string_view input) -> DetachedValue {
     auto lexer = Lexer {input};
     auto parser = Parser {lexer};
     const auto program = parser.parse_program();
@@ -88,8 +88,6 @@ TEST_CASE("Performance fibonacci(33)", "[performance]") {
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     std::cout << "fibonacci(33) took " << format_elapsed(elapsed) << "\n";
 
-    REQUIRE(evaluated != nullptr);
-
-    REQUIRE(evaluated->type() == ObjectType::Integer);
-    REQUIRE(evaluated->integer_value() == 3524578);
+    REQUIRE(evaluated.type() == ObjectType::Integer);
+    REQUIRE(evaluated.value.integer_value() == 3524578);
 }

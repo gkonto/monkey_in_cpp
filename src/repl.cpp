@@ -20,7 +20,8 @@ void print_parser_errors(std::ostream& output, const std::vector<std::string>& e
 }  // namespace
 
 void start_repl(std::istream& input, std::ostream& output) {
-    Environment environment;
+    PersistentStore store;
+    auto* environment = store.create_environment();
     std::string line;
 
     while (true) {
@@ -40,9 +41,7 @@ void start_repl(std::istream& input, std::ostream& output) {
             continue;
         }
 
-        const auto evaluated = eval(&program, environment);
-        if (evaluated != nullptr) {
-            output << evaluated->inspect() << '\n';
-        }
+        const auto evaluated = eval(&program, *environment);
+        output << evaluated.inspect() << '\n';
     }
 }
